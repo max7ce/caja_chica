@@ -122,3 +122,33 @@ Vite incrusta las variables durante el build, así que después de cargarlas hay
 El envío por WhatsApp está escrito pero no probado contra Meta: hace falta la cuenta, el número y las plantillas aprobadas con los mismos nombres que usa `TEXTOS` en el despachador. El correo funciona apenas cargues `RESEND_API_KEY` y verifiques el dominio remitente por DNS.
 
 El reenvío diario del aviso vencido está previsto en el diseño pero el despachador solo envía la fila agendada una vez. Para que insista todos los días falta agregar, al marcar `plazo_vencido` como enviada, una fila nueva programada 24 horas después.
+
+---
+
+## 7. PWA — instalación en el celular
+
+La aplicación es instalable: se agrega a la pantalla de inicio y se abre sin barra de navegador, como una app más.
+
+**Qué incluye**
+
+- `manifest.webmanifest` con el nombre, los iconos, el color institucional y dos accesos directos (Pedir un vale, Mis solicitudes).
+- Service worker generado por `vite-plugin-pwa`, que precarga el armazón de la aplicación: al abrirla, arranca al instante en lugar de descargar todo otra vez.
+- Franja de aviso cuando no hay conexión y cuando hay una versión nueva publicada.
+
+**Qué NO hace, a propósito**
+
+No funciona sin internet. El armazón abre, pero las consultas a Supabase están configuradas como `NetworkOnly`: sin conexión no se ve ningún dato ni se puede guardar nada. Es deliberado — en un sistema de dinero, mostrar un saldo cacheado de ayer o aceptar una solicitud que quizá nunca se envíe es peor que decir "sin conexión".
+
+**Actualizaciones.** El service worker detecta la versión nueva y muestra un botón "Actualizar" en lugar de recargar solo, porque recargar en medio de un formulario borraría lo escrito. El archivo `public/_headers` impide que `sw.js` quede cacheado; sin eso las actualizaciones no llegarían nunca.
+
+**Cómo se instala**
+
+- Android (Chrome): al entrar aparece el aviso "Instalar aplicación", o desde el menú de tres puntos → Instalar.
+- iPhone (Safari): botón Compartir → Añadir a pantalla de inicio. iOS no muestra aviso automático; hay que indicárselo a la gente.
+- Escritorio (Chrome o Edge): ícono de instalación en la barra de direcciones.
+
+**Iconos y logo — falta reemplazarlos**
+
+Los iconos de `public/` (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`) son provisionales: un recuadro azul con las iniciales. Reemplazalos por el escudo oficial respetando los mismos nombres y tamaños.
+
+Para el logo de la barra lateral, coloca el archivo oficial en `public/logo-ucb.png`. Si no está, la aplicación muestra automáticamente un recuadro azul con el nombre de la universidad, así que nunca queda rota.

@@ -1,0 +1,6 @@
+# El service worker nunca debe quedar cacheado: si el navegador guarda una
+# copia vieja de sw.js, las actualizaciones de la app no llegan nunca.
+/sw.js
+  Cache-Control: public, max-age=0, must-revalidate
+/manifest.webmanifest
+  Cache-Control: public, max-age=0, must-revalidate

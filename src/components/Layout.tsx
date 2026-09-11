@@ -4,6 +4,7 @@ import {
   BarChart3, Building2, Bell, Users, CalendarRange, UserCog
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { EstadoRed } from './EstadoRed'
 import { ETIQUETA_ROL, type Rol } from '../types/database'
 import { iniciales } from '../lib/formato'
 
@@ -31,11 +32,21 @@ export function Layout() {
     <div className="cc">
       <aside className="cc-lat">
         <div className="cc-marca">
-          <div className="cc-logo" />
-          <div>
-            <strong>Caja chica</strong>
-            <span>UCB · Sede Tarija</span>
-          </div>
+          {/* Coloca el logo oficial en public/logo-ucb.png. Si no existe, se
+              muestra el recuadro azul con el nombre de la universidad. */}
+          <img
+            src="/logo-ucb.png"
+            alt="Universidad Católica Boliviana San Pablo"
+            onError={(e) => {
+              const img = e.currentTarget
+              img.style.display = 'none'
+              const respaldo = img.nextElementSibling as HTMLElement | null
+              if (respaldo) { respaldo.style.display = 'grid'; respaldo.classList.add('cc-logo') }
+            }}
+          />
+          <div style={{ display: 'none' }}>UNIVERSIDAD CATÓLICA BOLIVIANA</div>
+          <strong>Caja chica</strong>
+          <span>Tarija</span>
         </div>
         <nav className="cc-nav">
           {ENLACES.filter((e) => rol && e.roles.includes(rol)).map(({ a, texto, Icono }) => (
@@ -59,6 +70,7 @@ export function Layout() {
         </div>
       </aside>
       <main className="cc-centro">
+        <EstadoRed />
         <Outlet />
       </main>
     </div>
