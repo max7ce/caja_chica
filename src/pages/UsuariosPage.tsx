@@ -3,6 +3,7 @@ import { actualizarPerfil, cambiarRol, listarPerfiles } from '../lib/api'
 import { crearClienteAltas } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Cabecera, Cargando, Error as AvisoError, Exito, Persona } from '../components/Ui'
+import { ImportarUsuarios } from '../components/ImportarUsuarios'
 import { ETIQUETA_ROL, type Profile, type Rol } from '../types/database'
 
 const ROLES: Rol[] = ['solicitante', 'daf', 'admin_caja', 'contabilidad', 'super_admin']
@@ -99,6 +100,8 @@ export function UsuariosPage() {
           debe confirmar antes de poder entrar.
         </p>
       </form>
+
+      <ImportarUsuarios alTerminar={cargar} />
 
       <div className="cc-card">
         <h2>Personas con acceso</h2>

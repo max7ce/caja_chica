@@ -152,3 +152,23 @@ No funciona sin internet. El armazón abre, pero las consultas a Supabase están
 Los iconos de `public/` (`icon-192.png`, `icon-512.png`, `icon-maskable-512.png`, `apple-touch-icon.png`) son provisionales: un recuadro azul con las iniciales. Reemplazalos por el escudo oficial respetando los mismos nombres y tamaños.
 
 Para el logo de la barra lateral, coloca el archivo oficial en `public/logo-ucb.png`. Si no está, la aplicación muestra automáticamente un recuadro azul con el nombre de la universidad, así que nunca queda rota.
+
+---
+
+## 8. Carga masiva de usuarios desde Excel
+
+En **Usuarios** hay una sección para dar de alta a mucha gente de una vez.
+
+**Cómo funciona.** Se descarga la plantilla `.xlsx` (trae dos filas de ejemplo y una hoja de instrucciones), se llena con una fila por persona y se sube. Antes de crear nada, la aplicación muestra una tabla de revisión: fila por fila, qué está lista y qué tiene problemas. Solo se crean las filas válidas; las demás se omiten y se informan.
+
+**Columnas**: `nombre`, `email`, `departamento`, `telefono`, `rol`, `contrasena`. Los encabezados se reconocen sin distinguir mayúsculas ni tildes, y el rol acepta tanto la clave interna (`admin_caja`) como el nombre en español ("administrador de caja").
+
+**Contraseñas.** Si la columna va vacía, el sistema genera una contraseña legible por persona. Al terminar se descarga un Excel con el resultado y las contraseñas generadas: es el único momento en que se pueden ver. Hay que entregarlo y después borrarlo.
+
+**Dos límites de Supabase que conviene conocer antes de cargar una lista larga:**
+
+El registro de usuarios tiene un tope de intentos por ventana de tiempo (por defecto unas decenas cada cinco minutos). La importación deja una pausa de 600 ms entre altas, pero con listas de más de veinticinco personas conviene subir el límite en Authentication → Rate Limits, o cargar en tandas.
+
+Si la confirmación de correo está activada, Supabase envía un correo por cada alta, y el servidor de correo incluido tiene un tope muy bajo. Para una carga masiva: desactivar la confirmación, o configurar un SMTP propio antes.
+
+**Los correos repetidos no se pisan.** Si una fila trae un correo que ya tiene cuenta, se informa como "ya existía" y no se modifica nada: ni el rol, ni la contraseña, ni los datos.
