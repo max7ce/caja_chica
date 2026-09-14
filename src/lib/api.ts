@@ -4,7 +4,8 @@ import type {
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
 } from '../types/database'
 
-const SEL_SOL = '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento)'
+const SEL_SOL =
+  '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento, qr_url)'
 
 /* ---------------------------------------------------------------- básicos */
 
@@ -455,4 +456,57 @@ export async function avalarSolicitud(
     estado: 'pendiente_daf'
   }).eq('id', solicitudId).eq('estado', 'pendiente_coordinador')
   if (error) throw error
+}
+
+/* ------------------------------------------------------------ QR de cobro */
+
+/**
+ * Guarda el QR de cobro. La ruta empieza con el id del usuario porque la
+ * política de Storage exige que cada quien escriba solo en su carpeta: así
+ * nadie puede reemplazar el QR ajeno y desviarse un desembolso.
+ */
+export async function subirQR(archivo: File, usuarioId: string): Promise<string> {
+  const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'png'
+  const ruta = `${usuarioId}/qr-${Date.now()}.${ext}`
+  const { error } = await supabase.storage.from('qr').upload(ruta, archivo, { upsert: true })
+  if (error) throw error
+  return ruta
+}
+
+export function urlQR(ruta: string | null | undefined): string | null {
+  if (!ruta) return null
+  return supabase.storage.from('qr').getPublicUrl(ruta).data.publicUrl
+}
+
+/* ------------------------------------------- restablecer contraseña */
+
+/** Contraseña inicial legible, del mismo estilo que las de la importación. */
+export function generarPassword(): string {
+  const silabas = ['ka', 'mi', 'to', 'ru', 'pe', 'la', 'so', 'ne', 'vi', 'da']
+  const a = silabas[Math.floor(Math.random() * silabas.length)]
+  const b = silabas[Math.floor(Math.random() * silabas.length)]
+  return `${a}${b}${Math.floor(1000 + Math.random() * 9000)}`
+}
+
+/**
+ * Pide a la función de servidor que cambie la contraseña de otra persona.
+ * El navegador nunca ve la llave de servicio: manda el token de la sesión
+ * actual y el servidor verifica que sea super_admin.
+ */
+export async function restablecerPassword(usuarioId: string, password: string) {
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) throw new Error('No hay sesión activa')
+
+  const r = await fetch('/.netlify/functions/admin-usuarios', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ usuarioId, password })
+  })
+
+  const cuerpo = await r.json().catch(() => ({}))
+  if (!r.ok) throw new Error(cuerpo.error ?? `Error ${r.status}`)
+  return cuerpo as { ok: true; email: string; nombre: string | null }
 }

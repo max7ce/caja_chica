@@ -21,6 +21,7 @@ export interface Profile {
   activo: boolean
   oficina_id: string | null
   cargo: string | null
+  qr_url: string | null
   oficina?: Pick<Oficina, 'id' | 'nombre' | 'coordinador_id'> | null
 }
 
@@ -41,6 +42,7 @@ export interface Parametros {
   pausar_fin_semana: boolean
   bloquear_si_vencida: boolean
   correos_contabilidad: string[]
+  qr_caja_url: string | null
 }
 
 export interface Periodo {
@@ -76,7 +78,7 @@ export interface Solicitud {
   fecha_cierre: string | null
   admin_caja_id: string | null
   aprobado_por_id: string | null
-  solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento'> | null
+  solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null
 }
 
 export interface Comprobante {

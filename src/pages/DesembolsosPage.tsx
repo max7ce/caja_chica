@@ -41,10 +41,15 @@ export function DesembolsosPage() {
 
       {abierta && (
         <div className="cc-card">
-          <ValeQR titulo={`Vale para ${abierta.solicitante?.full_name ?? 'el solicitante'}`} datos={{
-            solicitud_id: abierta.id, monto: Number(abierta.monto_solicitado),
-            timestamp: new Date().toISOString(), admin: perfil!.full_name ?? perfil!.email, tipo: 'desembolso'
-          }} />
+          <ValeQR
+            titulo={`Transferir a ${abierta.solicitante?.full_name ?? 'el solicitante'}`}
+            qrRuta={abierta.solicitante?.qr_url}
+            faltaQR={`${abierta.solicitante?.full_name ?? 'Esta persona'} todavía no cargó su QR de cobro. Pídele que lo suba desde Mi perfil, o transfiere con los datos de cuenta que ya manejas.`}
+            datos={{
+              solicitud_id: abierta.id, monto: Number(abierta.monto_solicitado),
+              admin: perfil!.full_name ?? perfil!.email, tipo: 'desembolso'
+            }}
+          />
           <div className="cc-acc" style={{ marginTop: 18 }}>
             <button className="cc-btn cc-btn-p" disabled={trabajando} onClick={() => confirmar(abierta)}>
               {trabajando ? 'Registrando…' : 'Confirmar transferencia'}

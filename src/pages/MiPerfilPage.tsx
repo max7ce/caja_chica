@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { actualizarPerfil } from '../lib/api'
+import { actualizarPerfil, subirQR, urlQR } from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Cabecera, Error as AvisoError, Exito } from '../components/Ui'
@@ -12,6 +12,7 @@ export function MiPerfilPage() {
   const [telefono, setTelefono] = useState(perfil?.telefono ?? '')
   const [optin, setOptin] = useState(!!perfil?.whatsapp_optin)
   const [password, setPassword] = useState('')
+  const [qr, setQr] = useState<File | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -68,6 +69,41 @@ export function MiPerfilPage() {
         </div>
         <button className="cc-btn cc-btn-p" disabled={trabajando}>Guardar cambios</button>
       </form>
+
+      <div className="cc-card" style={{ maxWidth: 560 }}>
+        <h2>Mi QR de cobro</h2>
+        <p className="cc-tenue" style={{ marginTop: 0 }}>
+          Sube la imagen del QR de tu cuenta bancaria. Es el que va a escanear el administrador de caja
+          para transferirte el dinero de tus vales. Sin él, tiene que pedirte los datos de cuenta aparte.
+        </p>
+
+        {perfil?.qr_url && (
+          <img
+            src={urlQR(perfil.qr_url)!}
+            alt="Mi QR de cobro"
+            style={{ width: 190, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 14 }}
+          />
+        )}
+
+        <div className="cc-campo">
+          <label>{perfil?.qr_url ? 'Reemplazar por otra imagen' : 'Imagen del QR (captura o foto)'}</label>
+          <input type="file" accept="image/*" onChange={(e) => setQr(e.target.files?.[0] ?? null)} />
+        </div>
+
+        <button className="cc-btn cc-btn-p" disabled={!qr || trabajando}
+          onClick={async () => {
+            setError(null); setExito(null); setTrabajando(true)
+            try {
+              const ruta = await subirQR(qr!, perfil!.id)
+              await actualizarPerfil(perfil!.id, { qr_url: ruta })
+              await recargar()
+              setQr(null)
+              setExito('QR de cobro guardado.')
+            } catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
+          }}>
+          Guardar QR
+        </button>
+      </div>
 
       <form className="cc-card" style={{ maxWidth: 560 }} onSubmit={cambiarClave}>
         <h2>Contraseña</h2>

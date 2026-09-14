@@ -10,7 +10,7 @@ import type { Solicitud } from '../types/database'
 
 export function DevolucionesPage() {
   const { solicitudId } = useParams<{ solicitudId: string }>()
-  const { perfil, periodo } = useAuth()
+  const { perfil, periodo, parametros } = useAuth()
   const navegar = useNavigate()
   const [solicitud, setSolicitud] = useState<Solicitud | null>(null)
   const [archivo, setArchivo] = useState<File | null>(null)
@@ -54,11 +54,16 @@ export function DevolucionesPage() {
       <AvisoError mensaje={error} />
       <Exito mensaje={exito} />
       <div className="cc-card">
-        <ValeQR titulo="QR de devolución" nota="Escanea desde la app del banco para transferir la diferencia."
+        <ValeQR
+          titulo="Cuenta de caja chica"
+          qrRuta={parametros?.qr_caja_url}
+          nota="Escanea este código desde tu banco y transfiere la diferencia a la cuenta de caja chica."
+          faltaQR="La caja todavía no tiene cargado su QR de cobro. Pídeselo al administrador de caja."
           datos={{
-            solicitud_id: solicitud.id, monto: diferencia, timestamp: new Date().toISOString(),
+            solicitud_id: solicitud.id, monto: diferencia,
             admin: perfil!.full_name ?? perfil!.email, tipo: 'devolucion'
-          }} />
+          }}
+        />
       </div>
       <div className="cc-card" style={{ maxWidth: 560 }}>
         <h2>Comprobante del depósito</h2>

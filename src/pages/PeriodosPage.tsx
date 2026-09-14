@@ -1,18 +1,20 @@
 import { useCallback, useEffect, useState } from 'react'
-import { guardarParametros, listarPerfiles, listarPeriodos, rotarPeriodo } from '../lib/api'
+import { guardarParametros, listarPerfiles, listarPeriodos, rotarPeriodo, subirQR, urlQR } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Exito, Persona, Vacio } from '../components/Ui'
 import type { Parametros, Periodo, Profile } from '../types/database'
 
 export function PeriodosPage() {
-  const { parametros, recargar } = useAuth()
+  const { perfil, parametros, recargar } = useAuth()
+  const perfilId = perfil!.id
   const [periodos, setPeriodos] = useState<Periodo[]>([])
   const [admins, setAdmins] = useState<Profile[]>([])
   const [adminId, setAdminId] = useState('')
   const [etiqueta, setEtiqueta] = useState('')
   const [fondo, setFondo] = useState(String(parametros?.monto_reposicion ?? 7000))
   const [form, setForm] = useState<Partial<Parametros>>({})
+  const [qrCaja, setQrCaja] = useState<File | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -134,6 +136,30 @@ export function PeriodosPage() {
             Bloquear vales nuevos si hay una rendición vencida
           </label>
         </div>
+        <div className="cc-campo">
+          <label>QR de cobro de la cuenta de caja chica</label>
+          <p className="cc-tenue" style={{ marginTop: 0, fontSize: 13 }}>
+            Es el que ve el solicitante cuando tiene que devolver una diferencia.
+          </p>
+          {parametros?.qr_caja_url && (
+            <img src={urlQR(parametros.qr_caja_url)!} alt="QR de caja chica"
+              style={{ width: 170, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 10 }} />
+          )}
+          <input type="file" accept="image/*" onChange={(e) => setQrCaja(e.target.files?.[0] ?? null)} />
+          {qrCaja && (
+            <button className="cc-btn cc-btn-x" style={{ marginTop: 10 }} onClick={async () => {
+              setError(null)
+              try {
+                const ruta = await subirQR(qrCaja, perfilId)
+                await guardarParametros({ qr_caja_url: ruta })
+                await recargar()
+                setQrCaja(null)
+                setExito('QR de caja chica guardado.')
+              } catch (e: any) { setError(e.message) }
+            }}>Subir QR de caja</button>
+          )}
+        </div>
+
         <button className="cc-btn cc-btn-p" onClick={async () => {
           setError(null)
           try {

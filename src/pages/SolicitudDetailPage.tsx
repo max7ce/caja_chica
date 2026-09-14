@@ -172,10 +172,15 @@ export function SolicitudDetailPage() {
       {puedeDesembolsar && (
         <div className="cc-card">
           <h2>Desembolsar por QR</h2>
-          <ValeQR titulo="Vale de desembolso" datos={{
-            solicitud_id: solicitud.id, monto: Number(solicitud.monto_solicitado),
-            timestamp: new Date().toISOString(), admin: perfil!.full_name ?? perfil!.email, tipo: 'desembolso'
-          }} />
+          <ValeQR
+            titulo={`Transferir a ${solicitud.solicitante?.full_name ?? 'el solicitante'}`}
+            qrRuta={solicitud.solicitante?.qr_url}
+            faltaQR="El solicitante todavía no cargó su QR de cobro. Pídele que lo suba desde Mi perfil."
+            datos={{
+              solicitud_id: solicitud.id, monto: Number(solicitud.monto_solicitado),
+              admin: perfil!.full_name ?? perfil!.email, tipo: 'desembolso'
+            }}
+          />
           <div className="cc-acc" style={{ marginTop: 18 }}>
             <button className="cc-btn cc-btn-p" disabled={trabajando}
               onClick={() => accion(() => desembolsar(solicitud, perfil!.id, periodo?.id ?? null), 'Desembolso registrado. El plazo empieza ahora.')}>

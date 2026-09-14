@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
-import { actualizarPerfil, cambiarRol, listarPerfiles } from '../lib/api'
+import {
+  actualizarPerfil, cambiarRol, generarPassword, listarPerfiles, restablecerPassword
+} from '../lib/api'
 import { crearClienteAltas } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Cabecera, Cargando, Error as AvisoError, Exito, Persona } from '../components/Ui'
@@ -15,6 +17,7 @@ export function UsuariosPage() {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+  const [nuevasClaves, setNuevasClaves] = useState<Record<string, string>>({})
 
   const [email, setEmail] = useState('')
   const [nombre, setNombre] = useState('')
@@ -107,14 +110,13 @@ export function UsuariosPage() {
         <h2>Personas con acceso</h2>
         <div className="cc-scroll">
           <table className="cc-tabla">
-            <thead><tr><th>Nombre</th><th>Correo</th><th>Departamento</th><th>WhatsApp</th><th>Rol</th><th>Acceso</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Correo</th><th>Oficina</th><th>Rol</th><th>Contraseña</th><th>Acceso</th></tr></thead>
             <tbody>
               {usuarios.map((u) => (
                 <tr key={u.id}>
                   <td><Persona nombre={u.full_name} /></td>
                   <td className="cc-mono">{u.email}</td>
-                  <td>{u.departamento ?? '—'}</td>
-                  <td className="cc-mono">{u.telefono ?? '—'}</td>
+                  <td className="cc-mono">{u.cargo ? `${u.cargo} ${u.departamento?.split(' ').slice(1).join(' ') ?? ''}` : u.departamento ?? '—'}</td>
                   <td>
                     <select value={u.role} disabled={u.id === perfil!.id}
                       onChange={async (e) => {
@@ -123,6 +125,25 @@ export function UsuariosPage() {
                       }}>
                       {ROLES.map((r) => <option key={r} value={r}>{ETIQUETA_ROL[r]}</option>)}
                     </select>
+                  </td>
+                  <td>
+                    {nuevasClaves[u.id] ? (
+                      <span className="cc-chip cc-ok" style={{ fontFamily: 'monospace' }}>{nuevasClaves[u.id]}</span>
+                    ) : (
+                      <button className="cc-btn cc-btn-x"
+                        onClick={async () => {
+                          if (!window.confirm(`¿Restablecer la contraseña de ${u.full_name ?? u.email}? La actual deja de servir.`)) return
+                          setError(null); setExito(null)
+                          try {
+                            const clave = generarPassword()
+                            await restablecerPassword(u.id, clave)
+                            setNuevasClaves((p) => ({ ...p, [u.id]: clave }))
+                            setExito(`Contraseña de ${u.email} restablecida. Anótala antes de salir de esta pantalla.`)
+                          } catch (e: any) { setError(e.message) }
+                        }}>
+                        Restablecer
+                      </button>
+                    )}
                   </td>
                   <td>
                     <button className={`cc-btn cc-btn-x ${u.activo ? 'cc-btn-r' : ''}`} disabled={u.id === perfil!.id}
@@ -139,7 +160,8 @@ export function UsuariosPage() {
           </table>
         </div>
         <p className="cc-tenue" style={{ fontSize: 13 }}>
-          Desactivar bloquea el ingreso. Borrar la cuenta de autenticación por completo solo se puede desde el panel de
+          La contraseña restablecida se muestra una sola vez, aquí mismo: anótala antes de recargar la
+          página o de salir. Desactivar bloquea el ingreso. Borrar la cuenta de autenticación por completo solo se puede desde el panel de
           Supabase, porque requiere una llave de servicio que la app no usa.
         </p>
       </div>
