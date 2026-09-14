@@ -14,6 +14,7 @@ import { ValidarDevolucionesPage } from '../pages/ValidarDevolucionesPage'
 import { RendicionCuentasPage } from '../pages/RendicionCuentasPage'
 import { RendicionDetailPage } from '../pages/RendicionDetailPage'
 import { RendicionesAdminPage } from '../pages/RendicionesAdminPage'
+import { ReposicionesPage } from '../pages/ReposicionesPage'
 import { ReportesPage } from '../pages/ReportesPage'
 import { AvisosPage } from '../pages/AvisosPage'
 import { PeriodosPage } from '../pages/PeriodosPage'
@@ -48,6 +49,8 @@ export function AppRouter() {
             <RutaProtegida roles={['admin_caja', 'daf', 'super_admin', 'contabilidad']}><RendicionCuentasPage /></RutaProtegida>} />
           <Route path="/rendicion-cuentas/:id" element={
             <RutaProtegida roles={['admin_caja', 'daf', 'super_admin', 'contabilidad']}><RendicionDetailPage /></RutaProtegida>} />
+          <Route path="/reposiciones" element={
+            <RutaProtegida roles={['contabilidad', 'super_admin']}><ReposicionesPage /></RutaProtegida>} />
           <Route path="/rendiciones-admin" element={
             <RutaProtegida roles={['daf', 'super_admin', 'contabilidad']}><RendicionesAdminPage /></RutaProtegida>} />
           <Route path="/reportes" element={

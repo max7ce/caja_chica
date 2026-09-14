@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, PlusCircle, CheckCircle2, Wallet, RefreshCcw,
-  BarChart3, Building2, Bell, Users, CalendarRange, UserCog, Tags
+  BarChart3, Building2, Bell, Users, CalendarRange, UserCog, Tags, Banknote
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { EstadoRed } from './EstadoRed'
@@ -16,6 +16,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
   { a: '/caja/desembolsos', texto: 'Desembolsar', Icono: Wallet, roles: ['super_admin', 'admin_caja'] },
   { a: '/caja/validar-devoluciones', texto: 'Validar devoluciones', Icono: RefreshCcw, roles: ['super_admin', 'admin_caja'] },
   { a: '/rendicion-cuentas', texto: 'Rendición', Icono: FileText, roles: ['super_admin', 'admin_caja', 'daf', 'contabilidad'] },
+  { a: '/reposiciones', texto: 'Reposiciones', Icono: Banknote, roles: ['contabilidad', 'super_admin'] },
   { a: '/rendiciones-admin', texto: 'Rendiciones por admin', Icono: Building2, roles: ['super_admin', 'daf', 'contabilidad'] },
   { a: '/reportes', texto: 'Reportes', Icono: BarChart3, roles: ['super_admin', 'daf', 'admin_caja', 'contabilidad'] },
   { a: '/avisos', texto: 'Avisos', Icono: Bell, roles: ['super_admin', 'daf', 'admin_caja'] },
