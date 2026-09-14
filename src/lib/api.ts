@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  Comprobante, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
+  Categoria, Comprobante, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
 } from '../types/database'
 
@@ -509,4 +509,25 @@ export async function restablecerPassword(usuarioId: string, password: string) {
   const cuerpo = await r.json().catch(() => ({}))
   if (!r.ok) throw new Error(cuerpo.error ?? `Error ${r.status}`)
   return cuerpo as { ok: true; email: string; nombre: string | null }
+}
+
+/* ---------------------------------------------------------- categorías */
+
+export async function listarCategorias(soloActivas = false): Promise<Categoria[]> {
+  let q = supabase.from('categorias').select('*').order('orden').order('nombre')
+  if (soloActivas) q = q.eq('activa', true)
+  const { data, error } = await q
+  if (error) throw error
+  return (data ?? []) as Categoria[]
+}
+
+export async function crearCategoria(nombre: string, orden: number) {
+  const { error } = await supabase
+    .from('categorias').insert({ nombre: nombre.trim(), orden })
+  if (error) throw error
+}
+
+export async function actualizarCategoria(id: string, cambios: Partial<Categoria>) {
+  const { error } = await supabase.from('categorias').update(cambios).eq('id', id)
+  if (error) throw error
 }

@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { crearSolicitud, subirComprobante, tieneRendicionVencida } from '../lib/api'
+import { crearSolicitud, listarCategorias, subirComprobante, tieneRendicionVencida } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { SubirArchivo } from '../components/SubirArchivo'
 import { Alerta, Cabecera, Error as AvisoError } from '../components/Ui'
-import { CATEGORIAS } from '../types/database'
+import { CATEGORIAS_RESPALDO } from '../types/database'
 import { bs } from '../lib/formato'
 
 export function SolicitudNuevaPage() {
@@ -12,7 +12,8 @@ export function SolicitudNuevaPage() {
   const navegar = useNavigate()
   const [monto, setMonto] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [categoria, setCategoria] = useState(CATEGORIAS[0])
+  const [categorias, setCategorias] = useState<string[]>(CATEGORIAS_RESPALDO)
+  const [categoria, setCategoria] = useState(CATEGORIAS_RESPALDO[0])
   const [archivo, setArchivo] = useState<File | null>(null)
   const [bloqueado, setBloqueado] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,6 +21,17 @@ export function SolicitudNuevaPage() {
 
   const tope = parametros?.tope_solicitud ?? 700
   const excede = Number(monto) > tope
+
+  useEffect(() => {
+    listarCategorias(true)
+      .then((cats) => {
+        if (!cats.length) return
+        const nombres = cats.map((c) => c.nombre)
+        setCategorias(nombres)
+        setCategoria(nombres[0])
+      })
+      .catch(() => { /* se quedan las de respaldo */ })
+  }, [])
 
   useEffect(() => {
     if (!perfil || !parametros?.bloquear_si_vencida) return
@@ -52,7 +64,7 @@ export function SolicitudNuevaPage() {
 
   return (
     <>
-      <Cabecera titulo="Pedir un vale" bajada="El DAF recibe el pedido por WhatsApp y por correo, y decide desde cualquiera de los dos." />
+      <Cabecera titulo="Pedir caja chica" bajada="El DAF recibe el pedido por WhatsApp y por correo, y decide desde cualquiera de los dos." />
       {bloqueado ? (
         <div className="cc-aviso cc-av-mal">
           Tienes una rendición fuera de plazo. Regularízala para poder pedir vales nuevos.
@@ -72,7 +84,7 @@ export function SolicitudNuevaPage() {
           <div className="cc-campo">
             <label>Categoría</label>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value)} disabled={bloqueado}>
-              {CATEGORIAS.map((c) => <option key={c}>{c}</option>)}
+              {categorias.map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
         </div>

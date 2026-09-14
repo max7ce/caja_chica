@@ -17,6 +17,7 @@ import { RendicionesAdminPage } from '../pages/RendicionesAdminPage'
 import { ReportesPage } from '../pages/ReportesPage'
 import { AvisosPage } from '../pages/AvisosPage'
 import { PeriodosPage } from '../pages/PeriodosPage'
+import { CategoriasPage } from '../pages/CategoriasPage'
 import { UsuariosPage } from '../pages/UsuariosPage'
 import { MiPerfilPage } from '../pages/MiPerfilPage'
 
@@ -53,6 +54,8 @@ export function AppRouter() {
             <RutaProtegida roles={['daf', 'admin_caja', 'super_admin', 'contabilidad']}><ReportesPage /></RutaProtegida>} />
           <Route path="/avisos" element={
             <RutaProtegida roles={['daf', 'admin_caja', 'super_admin']}><AvisosPage /></RutaProtegida>} />
+          <Route path="/categorias" element={
+            <RutaProtegida roles={['super_admin']}><CategoriasPage /></RutaProtegida>} />
           <Route path="/periodos" element={
             <RutaProtegida roles={['super_admin']}><PeriodosPage /></RutaProtegida>} />
           <Route path="/usuarios" element={

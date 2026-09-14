@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, PlusCircle, CheckCircle2, Wallet, RefreshCcw,
-  BarChart3, Building2, Bell, Users, CalendarRange, UserCog
+  BarChart3, Building2, Bell, Users, CalendarRange, UserCog, Tags
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { EstadoRed } from './EstadoRed'
@@ -11,7 +11,7 @@ import { iniciales } from '../lib/formato'
 const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] }[] = [
   { a: '/dashboard', texto: 'Panel', Icono: LayoutDashboard, roles: ['super_admin', 'solicitante', 'daf', 'admin_caja', 'contabilidad'] },
   { a: '/solicitudes', texto: 'Solicitudes', Icono: FileText, roles: ['super_admin', 'solicitante', 'daf', 'admin_caja', 'contabilidad'] },
-  { a: '/solicitudes/nueva', texto: 'Pedir un vale', Icono: PlusCircle, roles: ['super_admin', 'solicitante'] },
+  { a: '/solicitudes/nueva', texto: 'Pedir caja chica', Icono: PlusCircle, roles: ['super_admin', 'solicitante'] },
   { a: '/aprobaciones', texto: 'Por autorizar', Icono: CheckCircle2, roles: ['super_admin', 'daf'] },
   { a: '/caja/desembolsos', texto: 'Desembolsar', Icono: Wallet, roles: ['super_admin', 'admin_caja'] },
   { a: '/caja/validar-devoluciones', texto: 'Validar devoluciones', Icono: RefreshCcw, roles: ['super_admin', 'admin_caja'] },
@@ -20,6 +20,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
   { a: '/reportes', texto: 'Reportes', Icono: BarChart3, roles: ['super_admin', 'daf', 'admin_caja', 'contabilidad'] },
   { a: '/avisos', texto: 'Avisos', Icono: Bell, roles: ['super_admin', 'daf', 'admin_caja'] },
   { a: '/periodos', texto: 'Gestiones de caja', Icono: CalendarRange, roles: ['super_admin'] },
+  { a: '/categorias', texto: 'Categorías', Icono: Tags, roles: ['super_admin'] },
   { a: '/usuarios', texto: 'Usuarios', Icono: Users, roles: ['super_admin'] },
   { a: '/mi-perfil', texto: 'Mi perfil', Icono: UserCog, roles: ['super_admin', 'solicitante', 'daf', 'admin_caja', 'contabilidad'] }
 ]

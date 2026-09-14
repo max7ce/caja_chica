@@ -30,9 +30,19 @@ Estado al 14 de septiembre de 2026. Ordenado por lo que más duele si falta.
 
 **"Olvidé mi contraseña" autoservicio.** El restablecimiento por el administrador ya existe. El autoservicio desde la pantalla de ingreso necesita correo funcionando, así que depende del punto anterior.
 
-**Monto de la reposición.** Hoy es fijo en 7.000 Bs. Si el saldo bajó a 1.860, reponer 7.000 deja la caja en 8.860 y el fondo crece cada ciclo. Lo habitual es reponer lo rendido para volver al techo. Decisión pendiente.
+**Monto de la reposición: decidido.** Es fijo de 7.000 Bs y se suma al saldo anterior. El código ya funciona así; no hay nada que cambiar.
 
 **Separación de funciones en caja.** El administrador de caja no puede pedir vales, así que hoy no puede autodesembolsarse. Si eso cambiara, habría que bloquearlo en la base.
+
+## Reportes — siguiente frente
+
+Ya responden: en qué categoría cae más gasto, cuántos vales por categoría, quién pide de qué, gasto por oficina y por mes, con filtros de fecha y oficina.
+
+Falta, en orden de utilidad:
+- Exportar a Excel cualquier reporte, para adjuntarlo a un informe o llevarlo a una reunión.
+- Comparar períodos: este mes contra el anterior, esta gestión contra la pasada.
+- Tiempos del circuito: cuánto tarda cada eslabón desde que se pide hasta que se desembolsa. La vista `v_tiempos_aprobacion` ya calcula parte de esto pero ninguna pantalla la usa.
+- Informe de rendición en PDF, con los comprobantes adjuntos, para el expediente físico.
 
 ## Deuda conocida
 

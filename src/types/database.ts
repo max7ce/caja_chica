@@ -25,6 +25,13 @@ export interface Profile {
   oficina?: Pick<Oficina, 'id' | 'nombre' | 'coordinador_id'> | null
 }
 
+export interface Categoria {
+  id: string
+  nombre: string
+  activa: boolean
+  orden: number
+}
+
 export interface Oficina {
   id: string
   nombre: string
@@ -172,4 +179,5 @@ export const ETIQUETA_ROL: Record<Rol, string> = {
   contabilidad: 'Contabilidad'
 }
 
-export const CATEGORIAS = ['Materiales', 'Refrigerios', 'Transporte', 'Mantenimiento', 'Imprenta', 'Otros']
+/** Solo como respaldo si la tabla de categorías no responde. */
+export const CATEGORIAS_RESPALDO = ['Materiales', 'Refrigerios', 'Transporte', 'Mantenimiento', 'Imprenta', 'Otros']
