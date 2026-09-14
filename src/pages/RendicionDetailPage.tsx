@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { listarComprobantes, obtenerInforme, registrarReposicion, resolverInforme, urlPublica } from '../lib/api'
+import { exportarInforme } from '../lib/exportar'
+import { ValeQR } from '../components/ValeQR'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
-import type { Comprobante, InformeRendicion, Solicitud } from '../types/database'
+import type { Comprobante, InformeRendicion, Profile, Solicitud } from '../types/database'
 
 export function RendicionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -12,6 +14,7 @@ export function RendicionDetailPage() {
   const [informe, setInforme] = useState<InformeRendicion | null>(null)
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [adjuntos, setAdjuntos] = useState<Comprobante[]>([])
+  const [admin, setAdmin] = useState<Profile | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -19,8 +22,8 @@ export function RendicionDetailPage() {
 
   const cargar = useCallback(async () => {
     try {
-      const { informe, solicitudes } = await obtenerInforme(id!)
-      setInforme(informe); setSolicitudes(solicitudes)
+      const { informe, solicitudes, admin } = await obtenerInforme(id!)
+      setInforme(informe); setSolicitudes(solicitudes); setAdmin(admin)
       const listas = await Promise.all(solicitudes.map((s) => listarComprobantes(s.id)))
       setAdjuntos(listas.flat())
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
@@ -32,7 +35,9 @@ export function RendicionDetailPage() {
 
   const rol = perfil!.role
   const puedeResolver = ['daf', 'super_admin'].includes(rol) && informe.estado === 'pendiente_daf'
-  const puedeReponer = ['admin_caja', 'super_admin'].includes(rol) && informe.estado === 'aprobado_daf'
+  // La reposición la procesa contabilidad, no el administrador de caja:
+  // quien recibe el dinero no puede ser quien declara haberlo recibido.
+  const puedeReponer = ['contabilidad', 'super_admin'].includes(rol) && informe.estado === 'aprobado_daf'
 
   async function accion(fn: () => Promise<void>, mensaje: string) {
     setTrabajando(true); setError(null); setExito(null)
@@ -42,7 +47,16 @@ export function RendicionDetailPage() {
 
   return (
     <>
-      <Link className="cc-btn cc-btn-x" to="/rendicion-cuentas" style={{ marginBottom: 16 }}>Volver</Link>
+      <div className="cc-acc" style={{ marginBottom: 16 }}>
+        <Link className="cc-btn cc-btn-x" to="/rendicion-cuentas">Volver</Link>
+        <button className="cc-btn cc-btn-x"
+          onClick={() => accion(
+            () => exportarInforme(informe!, solicitudes, admin?.full_name ?? '—'),
+            'Informe descargado.'
+          )}>
+          Descargar en Excel
+        </button>
+      </div>
       <Cabecera titulo={`Informe del ${fecha(informe.fecha_creacion)}`} />
       <p style={{ marginTop: -12, marginBottom: 20 }}>
         Período {fecha(informe.fecha_inicio_periodo)} — {fecha(informe.fecha_fin_periodo)} ·{' '}
@@ -114,11 +128,38 @@ export function RendicionDetailPage() {
 
       {puedeReponer && (
         <div className="cc-card">
-          <h2>Reposición de contabilidad</h2>
-          <button className="cc-btn cc-btn-p" disabled={trabajando}
-            onClick={() => accion(() => registrarReposicion(informe, perfil!.id), 'Reposición registrada.')}>
-            Registrar {bs(informe.monto_reposicion)} recibidos
-          </button>
+          <h2>Procesar la reposición</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            El DAF ya aprobó este informe. Transfiere {bs(informe.monto_reposicion)} al QR de
+            {' '}{admin?.full_name ?? 'el administrador de caja'} y registra el movimiento aquí.
+          </p>
+          <ValeQR
+            titulo={`Transferir a ${admin?.full_name ?? 'el administrador de caja'}`}
+            qrRuta={admin?.qr_url}
+            faltaQR={`${admin?.full_name ?? 'El administrador de caja'} todavía no cargó su QR de cobro. Pídele que lo suba desde Mi perfil.`}
+            datos={{
+              solicitud_id: informe.id,
+              monto: Number(informe.monto_reposicion),
+              admin: perfil!.full_name ?? perfil!.email,
+              tipo: 'desembolso'
+            }}
+          />
+          <div className="cc-acc" style={{ marginTop: 18 }}>
+            <button className="cc-btn cc-btn-p" disabled={trabajando}
+              onClick={() => accion(
+                () => registrarReposicion(informe, perfil!.id),
+                'Reposición registrada. El saldo de caja subió y el informe quedó cerrado.'
+              )}>
+              Confirmar transferencia de {bs(informe.monto_reposicion)}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {informe.estado === 'aprobado_daf' && ['admin_caja', 'daf'].includes(rol) && (
+        <div className="cc-aviso cc-av-oro">
+          Aprobado por el DAF. Contabilidad tiene que procesar la transferencia de
+          {' '}{bs(informe.monto_reposicion)} para que el saldo de caja vuelva a subir.
         </div>
       )}
     </>

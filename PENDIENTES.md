@@ -38,11 +38,19 @@ Estado al 14 de septiembre de 2026. Ordenado por lo que más duele si falta.
 
 Ya responden: en qué categoría cae más gasto, cuántos vales por categoría, quién pide de qué, gasto por oficina y por mes, con filtros de fecha y oficina.
 
+Ya se exporta a Excel el informe de rendición (resumen firmable + detalle de vales) y el historial completo de rendiciones.
+
 Falta, en orden de utilidad:
-- Exportar a Excel cualquier reporte, para adjuntarlo a un informe o llevarlo a una reunión.
+- Exportar también los reportes por categoría y por persona.
 - Comparar períodos: este mes contra el anterior, esta gestión contra la pasada.
 - Tiempos del circuito: cuánto tarda cada eslabón desde que se pide hasta que se desembolsa. La vista `v_tiempos_aprobacion` ya calcula parte de esto pero ninguna pantalla la usa.
 - Informe de rendición en PDF, con los comprobantes adjuntos, para el expediente físico.
+
+## Circuito de la reposición
+
+Cerrado: el administrador arma el informe, el DAF lo aprueba, contabilidad transfiere al QR del administrador y registra el ingreso. El administrador ya no registra su propia reposición — quien recibe el dinero no puede ser quien declara haberlo recibido.
+
+Contabilidad solo puede cerrar informes ya aprobados por el DAF, y no puede tocar los montos: lo garantiza el trigger `proteger_informe`, no la interfaz.
 
 ## Deuda conocida
 

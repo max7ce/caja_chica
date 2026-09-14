@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { crearInforme, listarInformes, obtenerSaldo, solicitudesSinRendir } from '../lib/api'
+import { crearInforme, listarInformes, listarPerfiles, obtenerSaldo, solicitudesSinRendir } from '../lib/api'
+import { exportarInformes } from '../lib/exportar'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Alerta, Cabecera, Cargando, Error as AvisoError, EstadoInformeChip, Vacio } from '../components/Ui'
@@ -101,6 +102,17 @@ export function RendicionCuentasPage() {
 
       <div className="cc-card">
         <h2>Informes</h2>
+        {informes.length > 0 && (
+          <button className="cc-btn cc-btn-x" style={{ marginBottom: 14 }}
+            onClick={async () => {
+              try {
+                const perfiles = await listarPerfiles()
+                await exportarInformes(informes, new Map(perfiles.map((p) => [p.id, p.full_name ?? p.email])))
+              } catch (e: any) { setError(e.message) }
+            }}>
+            Descargar historial en Excel
+          </button>
+        )}
         {!informes.length ? <Vacio texto="Todavía no se generó ningún informe." /> : (
           <div className="cc-scroll">
             <table className="cc-tabla">

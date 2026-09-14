@@ -330,7 +330,19 @@ export async function obtenerInforme(id: string) {
     .from('informe_solicitudes').select(`solicitud:solicitudes(${SEL_SOL})`).eq('informe_id', id)
   if (e2) throw e2
 
-  return { informe: data as InformeRendicion | null, solicitudes: (rel ?? []).map((r: any) => r.solicitud as Solicitud) }
+  // Contabilidad necesita el QR del administrador para transferirle la reposición.
+  let admin: Profile | null = null
+  if (data?.admin_caja_id) {
+    const { data: p } = await supabase
+      .from('profiles').select('*').eq('id', data.admin_caja_id).maybeSingle()
+    admin = p as Profile | null
+  }
+
+  return {
+    informe: data as InformeRendicion | null,
+    solicitudes: (rel ?? []).map((r: any) => r.solicitud as Solicitud),
+    admin
+  }
 }
 
 export async function resolverInforme(informe: InformeRendicion, aprobado: boolean, dafId: string) {
@@ -341,8 +353,19 @@ export async function resolverInforme(informe: InformeRendicion, aprobado: boole
   }).eq('id', informe.id)
   if (error) throw error
 
+  // El administrador se entera del resultado; contabilidad solo si se aprobó,
+  // porque recién ahí tienen algo que hacer.
   await agendarAviso('informe_aprobado', 'correo', informe.admin_caja_id, informe.id,
     { estado: aprobado ? 'aprobado' : 'rechazado' }, 'informe')
+
+  if (aprobado) {
+    const { data: contables } = await supabase
+      .from('profiles').select('id').eq('role', 'contabilidad').eq('activo', true)
+    for (const c of contables ?? []) {
+      await agendarAviso('reposicion_por_procesar', 'correo', c.id, informe.id,
+        { monto: informe.monto_reposicion }, 'informe')
+    }
+  }
 }
 
 export async function registrarReposicion(informe: InformeRendicion, adminCajaId: string) {
@@ -357,6 +380,9 @@ export async function registrarReposicion(informe: InformeRendicion, adminCajaId
   const { error: e2 } = await supabase
     .from('informe_rendicion_cuentas').update({ estado: 'completado' }).eq('id', informe.id)
   if (e2) throw e2
+
+  await agendarAviso('reposicion_hecha', 'ambos', informe.admin_caja_id, informe.id,
+    { monto: informe.monto_reposicion }, 'informe')
 }
 
 /* -------------------------------------------------- reporte para el DAF */
