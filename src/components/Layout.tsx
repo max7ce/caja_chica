@@ -25,7 +25,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
 ]
 
 export function Layout() {
-  const { perfil, periodo, cerrarSesion } = useAuth()
+  const { perfil, periodo, esCoordinador, cerrarSesion } = useAuth()
   const rol = perfil?.role
 
   return (
@@ -49,6 +49,11 @@ export function Layout() {
           <span>Tarija</span>
         </div>
         <nav className="cc-nav">
+          {esCoordinador && (
+            <NavLink to="/avales" className={({ isActive }) => (isActive ? 'on' : '')}>
+              <CheckCircle2 size={16} strokeWidth={2} /> Por avalar
+            </NavLink>
+          )}
           {ENLACES.filter((e) => rol && e.roles.includes(rol)).map(({ a, texto, Icono }) => (
             <NavLink key={a} to={a} end={a === '/solicitudes'} className={({ isActive }) => (isActive ? 'on' : '')}>
               <Icono size={16} strokeWidth={2} /> {texto}

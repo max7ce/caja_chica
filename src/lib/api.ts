@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  Comprobante, InformeRendicion, MovimientoCaja, Notificacion, Parametros,
+  Comprobante, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
 } from '../types/database'
 
@@ -391,4 +391,68 @@ export async function listarAvisos(recursoId?: string): Promise<Notificacion[]> 
   const { data, error } = await q
   if (error) throw error
   return (data ?? []) as Notificacion[]
+}
+
+/* ------------------------------------------------------------- oficinas */
+
+export async function listarOficinas(): Promise<Oficina[]> {
+  const { data, error } = await supabase
+    .from('oficinas')
+    .select('*, coordinador:profiles!oficinas_coordinador_id_fkey(id, full_name, email)')
+    .order('nombre')
+  if (error) throw error
+  return (data ?? []) as Oficina[]
+}
+
+/** Crea la oficina si no existe y devuelve su id. */
+export async function asegurarOficina(nombre: string): Promise<string> {
+  const limpio = nombre.trim().toUpperCase()
+  const { data: existente } = await supabase
+    .from('oficinas').select('id').eq('nombre', limpio).maybeSingle()
+  if (existente) return existente.id as string
+
+  const { data, error } = await supabase
+    .from('oficinas').insert({ nombre: limpio }).select('id').single()
+  if (error) throw error
+  return data.id as string
+}
+
+export async function asignarCoordinador(oficinaId: string, coordinadorId: string | null) {
+  const { error } = await supabase
+    .from('oficinas').update({ coordinador_id: coordinadorId }).eq('id', oficinaId)
+  if (error) throw error
+}
+
+export async function obtenerPerfilPorEmail(email: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles').select('*').eq('email', email.toLowerCase()).maybeSingle()
+  if (error) throw error
+  return data as Profile | null
+}
+
+/** Oficinas que coordina el usuario actual. Vacío si no coordina ninguna. */
+export async function misOficinas(usuarioId: string): Promise<Oficina[]> {
+  const { data, error } = await supabase
+    .from('oficinas').select('*').eq('coordinador_id', usuarioId).eq('activa', true)
+  if (error) throw error
+  return (data ?? []) as Oficina[]
+}
+
+/* ---------------------------------------------------------------- aval */
+
+/**
+ * Dictamen del coordinador. Avale o no, la solicitud pasa al DAF: el trigger
+ * de la base se encarga de avisarle con la observación incluida.
+ */
+export async function avalarSolicitud(
+  solicitudId: string, avala: boolean, observacion: string
+) {
+  const { error } = await supabase.from('solicitudes').update({
+    aval_coordinador: avala,
+    observacion_coordinador: observacion.trim() || null,
+    fecha_aval_coordinador: new Date().toISOString(),
+    origen_aval: 'app',
+    estado: 'pendiente_daf'
+  }).eq('id', solicitudId).eq('estado', 'pendiente_coordinador')
+  if (error) throw error
 }

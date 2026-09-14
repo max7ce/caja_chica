@@ -1,14 +1,16 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
-import { obtenerParametros, obtenerPerfil, periodoVigente } from '../lib/api'
-import type { Parametros, Periodo, Profile, Rol } from '../types/database'
+import { misOficinas, obtenerParametros, obtenerPerfil, periodoVigente } from '../lib/api'
+import type { Oficina, Parametros, Periodo, Profile, Rol } from '../types/database'
 
 interface Ctx {
   session: Session | null
   perfil: Profile | null
   parametros: Parametros | null
   periodo: Periodo | null
+  oficinasQueCoordino: Oficina[]
+  esCoordinador: boolean
   cargando: boolean
   tieneRol: (roles: Rol[]) => boolean
   iniciarSesion: (email: string, password: string) => Promise<void>
@@ -23,13 +25,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [perfil, setPerfil] = useState<Profile | null>(null)
   const [parametros, setParametros] = useState<Parametros | null>(null)
   const [periodo, setPeriodo] = useState<Periodo | null>(null)
+  const [oficinasQueCoordino, setOficinas] = useState<Oficina[]>([])
   const [cargando, setCargando] = useState(true)
 
   const cargarContexto = useCallback(async (userId?: string) => {
-    if (!userId) { setPerfil(null); setParametros(null); setPeriodo(null); return }
+    if (!userId) { setPerfil(null); setParametros(null); setPeriodo(null); setOficinas([]); return }
     try {
-      const [p, par, per] = await Promise.all([obtenerPerfil(userId), obtenerParametros(), periodoVigente()])
-      setPerfil(p); setParametros(par); setPeriodo(per)
+      const [p, par, per, ofis] = await Promise.all([
+        obtenerPerfil(userId), obtenerParametros(), periodoVigente(), misOficinas(userId)
+      ])
+      setPerfil(p); setParametros(par); setPeriodo(per); setOficinas(ofis)
     } catch (e) {
       console.error('No se pudo cargar el contexto', e)
     }
@@ -52,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const valor = useMemo<Ctx>(() => ({
     session, perfil, parametros, periodo, cargando,
+    oficinasQueCoordino,
+    esCoordinador: oficinasQueCoordino.length > 0,
     tieneRol: (roles) => !!perfil && roles.includes(perfil.role),
     iniciarSesion: async (email, password) => {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
@@ -59,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
     cerrarSesion: async () => { await supabase.auth.signOut(); setPerfil(null) },
     recargar: async () => cargarContexto(session?.user.id)
-  }), [session, perfil, parametros, periodo, cargando, cargarContexto])
+  }), [session, perfil, parametros, periodo, oficinasQueCoordino, cargando, cargarContexto])
 
   return <C.Provider value={valor}>{children}</C.Provider>
 }

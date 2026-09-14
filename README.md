@@ -172,3 +172,23 @@ El registro de usuarios tiene un tope de intentos por ventana de tiempo (por def
 Si la confirmación de correo está activada, Supabase envía un correo por cada alta, y el servidor de correo incluido tiene un tope muy bajo. Para una carga masiva: desactivar la confirmación, o configurar un SMTP propio antes.
 
 **Los correos repetidos no se pisan.** Si una fila trae un correo que ya tiene cuenta, se informa como "ya existía" y no se modifica nada: ni el rol, ni la contraseña, ni los datos.
+
+---
+
+## 9. Aval del coordinador (migración 02)
+
+La cadena de aprobación tiene dos niveles: el coordinador de la oficina avala, y recién entonces la solicitud llega al DAF.
+
+**Cómo enruta.** Al crearse la solicitud, un trigger busca el coordinador de la oficina del solicitante y la manda a `pendiente_coordinador`. Va directo a `pendiente_daf` en tres casos: cuando la persona no tiene oficina o la oficina no tiene coordinador; cuando quien pide **es** el coordinador, porque nadie se avala a sí mismo; y cuando quien coordina esa oficina es además el DAF que aprueba después, para que no vea la misma solicitud dos veces.
+
+**Quién puede pedir vales.** Solo los roles `solicitante` y `super_admin`. Quien tiene rol `daf`, `admin_caja` o `contabilidad` no crea solicitudes: si necesita algo, lo pide el coordinador de su oficina. Está en la política de inserción de `solicitudes`, no solo en la interfaz.
+
+**El aval no corta el circuito.** Avalada o no, la solicitud pasa al DAF. Lo que cambia es el dictamen que va adjunto: `aval_coordinador` más la observación, que el DAF ve en un recuadro al abrir la solicitud y que también le llega al solicitante. No avalar exige escribir el motivo.
+
+**Estructura.** La tabla `oficinas` tiene un coordinador por oficina; `profiles` gana `oficina_id` y `cargo`. Cambiar quién coordina es actualizar una fila, no migrar usuarios.
+
+**Quién ve qué.** El coordinador ve y puede avalar únicamente las solicitudes donde figura como coordinador, y solo mientras están pendientes de aval. Está en la política de RLS, no solo en la interfaz.
+
+**Cómo aplicarla.** En el SQL Editor: primero la línea del §1 sola —Postgres no permite usar un valor nuevo de un enum en la misma transacción en que se crea— y después todo el §2 junto.
+
+**Importación con oficinas.** La plantilla ahora incluye `oficina` y `cargo`. Al importar se crean las oficinas que falten y quien tenga cargo `COORDINADOR` queda asignado como responsable de la suya. Si el correo ya existía, no se toca ni el rol ni la contraseña, pero sí se actualiza la oficina: es lo que define quién avala.

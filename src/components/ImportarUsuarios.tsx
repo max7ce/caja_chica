@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { actualizarPerfil, cambiarRol } from '../lib/api'
+import {
+  actualizarPerfil, asegurarOficina, asignarCoordinador, cambiarRol, obtenerPerfilPorEmail
+} from '../lib/api'
 import { crearClienteAltas } from '../lib/supabase'
 import {
   descargarPlantilla, descargarResultados, leerExcel,
@@ -43,6 +45,20 @@ export function ImportarUsuarios({ alTerminar }: { alTerminar: () => void }) {
     // sesión del administrador no se pierde a mitad del lote.
     const clienteAltas = crearClienteAltas()
 
+    // Primero las oficinas: se crean una sola vez y se reutilizan.
+    const oficinas = new Map<string, string>()
+    try {
+      for (const nombre of new Set(validas.map((f) => f.oficina).filter(Boolean))) {
+        oficinas.set(nombre, await asegurarOficina(nombre))
+      }
+    } catch (e: any) {
+      setError(`No se pudieron crear las oficinas: ${e.message}`)
+      setImportando(false)
+      return
+    }
+
+    const coordinadores: { oficina: string; email: string }[] = []
+
     for (let i = 0; i < validas.length; i++) {
       const f = validas[i]
       try {
@@ -54,17 +70,38 @@ export function ImportarUsuarios({ alTerminar }: { alTerminar: () => void }) {
 
         if (eAlta) {
           const yaExiste = /already registered|already been registered/i.test(eAlta.message)
+          let detalle = yaExiste ? 'Ya tenía cuenta; no se tocó rol ni contraseña' : eAlta.message
+
+          // La cuenta no se toca, pero sí se actualiza dónde trabaja: es lo que
+          // define quién avala sus solicitudes.
+          if (yaExiste && f.oficina) {
+            const existente = await obtenerPerfilPorEmail(f.email)
+            if (existente) {
+              await actualizarPerfil(existente.id, {
+                oficina_id: oficinas.get(f.oficina) ?? null,
+                cargo: f.cargo || null
+              })
+              if (f.esCoordinador) coordinadores.push({ oficina: f.oficina, email: f.email })
+              detalle += `; oficina actualizada a ${f.oficina}`
+            }
+          }
+
           salida.push({
             fila: f.fila, email: f.email, password: f.password,
-            estado: yaExiste ? 'ya_existia' : 'error',
-            detalle: yaExiste ? 'Ese correo ya tenía cuenta; no se modificó' : eAlta.message
+            estado: yaExiste ? 'ya_existia' : 'error', detalle
           })
         } else if (data.user) {
           if (f.rol !== 'solicitante') await cambiarRol(data.user.id, f.rol)
-          if (f.telefono) await actualizarPerfil(data.user.id, { whatsapp_optin: true })
+          await actualizarPerfil(data.user.id, {
+            oficina_id: oficinas.get(f.oficina) ?? null,
+            cargo: f.cargo || null,
+            ...(f.telefono ? { whatsapp_optin: true } : {})
+          })
+          if (f.esCoordinador) coordinadores.push({ oficina: f.oficina, email: f.email })
           salida.push({
             fila: f.fila, email: f.email, password: f.password,
-            estado: 'creado', detalle: ETIQUETA_ROL[f.rol]
+            estado: 'creado',
+            detalle: [ETIQUETA_ROL[f.rol], f.oficina, f.cargo].filter(Boolean).join(' · ')
           })
         } else {
           salida.push({
@@ -84,6 +121,23 @@ export function ImportarUsuarios({ alTerminar }: { alTerminar: () => void }) {
       setResultados([...salida])
       if (i < validas.length - 1) await new Promise((r) => setTimeout(r, PAUSA_MS))
     }
+
+    // Los coordinadores se asignan al final: la oficina ya existe y la persona
+    // ya tiene perfil, sea recién creada o de antes.
+    for (const c of coordinadores) {
+      const oficinaId = oficinas.get(c.oficina)
+      if (!oficinaId) continue
+      try {
+        const perfil = await obtenerPerfilPorEmail(c.email)
+        if (perfil) await asignarCoordinador(oficinaId, perfil.id)
+      } catch (e: any) {
+        salida.push({
+          fila: 0, email: c.email, password: '', estado: 'error',
+          detalle: `No se pudo asignar como coordinador de ${c.oficina}: ${e.message}`
+        })
+      }
+    }
+    setResultados([...salida])
 
     setImportando(false)
     alTerminar()
@@ -128,7 +182,7 @@ export function ImportarUsuarios({ alTerminar }: { alTerminar: () => void }) {
           <div className="cc-scroll">
             <table className="cc-tabla">
               <thead>
-                <tr><th>Fila</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>WhatsApp</th><th>Revisión</th></tr>
+                <tr><th>Fila</th><th>Nombre</th><th>Correo</th><th>Oficina</th><th>Cargo</th><th>Rol</th><th>Revisión</th></tr>
               </thead>
               <tbody>
                 {filas.map((f) => (
@@ -136,8 +190,13 @@ export function ImportarUsuarios({ alTerminar }: { alTerminar: () => void }) {
                     <td className="cc-mono">{f.fila}</td>
                     <td>{f.nombre || <span className="cc-tenue">—</span>}</td>
                     <td className="cc-mono">{f.email || '—'}</td>
+                    <td>{f.oficina || <span className="cc-tenue">—</span>}</td>
+                    <td>
+                      {f.esCoordinador
+                        ? <span className="cc-chip cc-curso">Coordinador</span>
+                        : <span className="cc-tenue">{f.cargo || '—'}</span>}
+                    </td>
                     <td>{ETIQUETA_ROL[f.rol]}</td>
-                    <td className="cc-mono">{f.telefono || '—'}</td>
                     <td>
                       {f.errores.length
                         ? <span className="cc-chip cc-mal">{f.errores.join('. ')}</span>

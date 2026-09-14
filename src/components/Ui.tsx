@@ -2,6 +2,7 @@ import { ETIQUETA_ESTADO, type EstadoInforme, type EstadoSolicitud } from '../ty
 import { iniciales } from '../lib/formato'
 
 const CLASE: Record<EstadoSolicitud, string> = {
+  pendiente_coordinador: 'cc-espera',
   pendiente_daf: 'cc-espera',
   aprobado_daf: 'cc-curso',
   desembolsado: 'cc-curso',

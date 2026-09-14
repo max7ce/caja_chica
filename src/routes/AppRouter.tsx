@@ -8,6 +8,7 @@ import { SolicitudNuevaPage } from '../pages/SolicitudNuevaPage'
 import { SolicitudDetailPage } from '../pages/SolicitudDetailPage'
 import { DevolucionesPage } from '../pages/DevolucionesPage'
 import { AprobacionesPage } from '../pages/AprobacionesPage'
+import { AvalesPage } from '../pages/AvalesPage'
 import { DesembolsosPage } from '../pages/DesembolsosPage'
 import { ValidarDevolucionesPage } from '../pages/ValidarDevolucionesPage'
 import { RendicionCuentasPage } from '../pages/RendicionCuentasPage'
@@ -35,6 +36,7 @@ export function AppRouter() {
             <RutaProtegida roles={['solicitante', 'super_admin']}><SolicitudNuevaPage /></RutaProtegida>} />
           <Route path="/solicitudes/:id" element={<SolicitudDetailPage />} />
           <Route path="/devoluciones/:solicitudId" element={<DevolucionesPage />} />
+          <Route path="/avales" element={<AvalesPage />} />
           <Route path="/aprobaciones" element={
             <RutaProtegida roles={[...DAF]}><AprobacionesPage /></RutaProtegida>} />
           <Route path="/caja/desembolsos" element={

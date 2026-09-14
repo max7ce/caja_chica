@@ -10,6 +10,9 @@ export interface FilaImport {
   departamento: string
   telefono: string
   rol: Rol
+  oficina: string
+  cargo: string
+  esCoordinador: boolean
   password: string
   generada: boolean
   errores: string[]
@@ -92,6 +95,9 @@ export async function leerExcel(archivo: File): Promise<FilaImport[]> {
       const telefono = columna(obj, 'telefono', 'whatsapp', 'celular')
       const rolTexto = columna(obj, 'rol', 'perfil').toLowerCase()
       const passwordTexto = columna(obj, 'contrasena', 'contraseña', 'password', 'clave')
+      const oficina = columna(obj, 'oficina', 'unidad organizacional').toUpperCase()
+      const cargo = columna(obj, 'cargo', 'puesto').toUpperCase()
+      const esCoordinador = /COORDINADOR/.test(cargo)
 
       const errores: string[] = []
 
@@ -121,9 +127,12 @@ export async function leerExcel(archivo: File): Promise<FilaImport[]> {
         errores.push('La contraseña debe tener al menos 6 caracteres')
       }
 
+      if (esCoordinador && !oficina) errores.push('Un coordinador necesita oficina')
+
       return {
         fila: i + 2, // +2: la fila 1 son los encabezados
-        nombre, email, departamento, telefono, rol, password, generada, errores
+        nombre, email, departamento, telefono, rol,
+        oficina, cargo, esCoordinador, password, generada, errores
       }
     })
 }
@@ -134,10 +143,10 @@ const CABECERA = { fontWeight: 'bold' as const, backgroundColor: '#f8f9fa' }
 /** Descarga la plantilla con los encabezados esperados y dos filas de ejemplo. */
 export async function descargarPlantilla() {
   const ejemplos = [
-    { nombre: 'Lucía Ávila', email: 'lucia.avila@ucb.edu.bo', departamento: 'Secretaría',
-      telefono: '+59171234567', rol: 'solicitante', contrasena: '' },
-    { nombre: 'Rodrigo Nava', email: 'rodrigo.nava@ucb.edu.bo', departamento: 'Dirección Administrativa Financiera',
-      telefono: '+59176543210', rol: 'daf', contrasena: '' }
+    { nombre: 'Lucía Ávila', email: 'lucia.avila@ucb.edu.bo', departamento: 'ASISTENTE EMPRESAS',
+      telefono: '+59171234567', rol: 'solicitante', contrasena: '', oficina: 'EMPRESAS', cargo: 'ASISTENTE' },
+    { nombre: 'José Fernández', email: 'jfernandez@ucb.edu.bo', departamento: 'COORDINADOR EMPRESAS',
+      telefono: '+59176543210', rol: 'solicitante', contrasena: '', oficina: 'EMPRESAS', cargo: 'COORDINADOR' }
   ]
 
   const columnasUsuarios = [
@@ -146,7 +155,9 @@ export async function descargarPlantilla() {
     { header: { value: 'departamento', ...CABECERA }, width: 30, cell: (o: any) => ({ value: o.departamento, type: String }) },
     { header: { value: 'telefono', ...CABECERA }, width: 18, cell: (o: any) => ({ value: o.telefono, type: String }) },
     { header: { value: 'rol', ...CABECERA }, width: 16, cell: (o: any) => ({ value: o.rol, type: String }) },
-    { header: { value: 'contrasena', ...CABECERA }, width: 18, cell: (o: any) => ({ value: o.contrasena, type: String }) }
+    { header: { value: 'contrasena', ...CABECERA }, width: 18, cell: (o: any) => ({ value: o.contrasena, type: String }) },
+    { header: { value: 'oficina', ...CABECERA }, width: 18, cell: (o: any) => ({ value: o.oficina, type: String }) },
+    { header: { value: 'cargo', ...CABECERA }, width: 18, cell: (o: any) => ({ value: o.cargo, type: String }) }
   ]
 
   const instrucciones = [
@@ -156,6 +167,8 @@ export async function descargarPlantilla() {
     { campo: 'telefono', ayuda: 'Opcional. Con código de país: +59171234567. Sin él, los avisos llegan solo por correo.' },
     { campo: 'rol', ayuda: `Uno de: ${ROLES_VALIDOS.join(', ')}. Vacío equivale a solicitante.` },
     { campo: 'contrasena', ayuda: 'Opcional. Vacía: el sistema genera una y la muestra al terminar.' },
+    { campo: 'oficina', ayuda: 'Unidad a la que pertenece: EMPRESAS, DAF, UTSI… Define quién debe avalar sus solicitudes.' },
+    { campo: 'cargo', ayuda: 'ASISTENTE o COORDINADOR. Quien diga COORDINADOR queda como responsable de avalar en su oficina.' },
     { campo: '—', ayuda: 'No cambies los nombres de los encabezados de la primera hoja.' }
   ]
 

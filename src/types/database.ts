@@ -1,7 +1,7 @@
 export type Rol = 'super_admin' | 'solicitante' | 'daf' | 'admin_caja' | 'contabilidad'
 
 export type EstadoSolicitud =
-  | 'pendiente_daf' | 'aprobado_daf' | 'desembolsado'
+  | 'pendiente_coordinador' | 'pendiente_daf' | 'aprobado_daf' | 'desembolsado'
   | 'pendiente_devolucion' | 'completado' | 'rechazado'
 
 export type EstadoInforme = 'borrador' | 'pendiente_daf' | 'aprobado_daf' | 'completado' | 'rechazado'
@@ -19,6 +19,17 @@ export interface Profile {
   telefono: string | null
   whatsapp_optin: boolean
   activo: boolean
+  oficina_id: string | null
+  cargo: string | null
+  oficina?: Pick<Oficina, 'id' | 'nombre' | 'coordinador_id'> | null
+}
+
+export interface Oficina {
+  id: string
+  nombre: string
+  coordinador_id: string | null
+  activa: boolean
+  coordinador?: Pick<Profile, 'id' | 'full_name' | 'email'> | null
 }
 
 export interface Parametros {
@@ -54,6 +65,10 @@ export interface Solicitud {
   estado: EstadoSolicitud
   motivo_rechazo: string | null
   origen_decision: 'app' | 'whatsapp' | 'correo' | null
+  coordinador_id: string | null
+  aval_coordinador: boolean | null
+  observacion_coordinador: string | null
+  fecha_aval_coordinador: string | null
   fecha_creacion: string
   fecha_desembolso: string | null
   limite_tiempo_devolucion: string | null
@@ -138,6 +153,7 @@ export interface Notificacion {
 }
 
 export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
+  pendiente_coordinador: 'Esperando al coordinador',
   pendiente_daf: 'Esperando al DAF',
   aprobado_daf: 'Lista para desembolso',
   desembolsado: 'Por rendir',

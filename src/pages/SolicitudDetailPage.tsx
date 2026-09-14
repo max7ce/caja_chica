@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-  decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
+  avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
   obtenerSolicitud, reportarGasto, subirComprobante, urlPublica, validarDevolucion
 } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -23,6 +23,7 @@ export function SolicitudDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
+  const [observacion, setObservacion] = useState('')
   const [montoReal, setMontoReal] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -44,6 +45,7 @@ export function SolicitudDetailPage() {
 
   const rol = perfil!.role
   const esPropia = solicitud.solicitante_id === perfil!.id
+  const puedeAvalar = solicitud.coordinador_id === perfil!.id && solicitud.estado === 'pendiente_coordinador'
   const puedeDecidir = ['daf', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_daf'
   const puedeDesembolsar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'aprobado_daf'
   const puedeValidar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_devolucion'
@@ -94,6 +96,14 @@ export function SolicitudDetailPage() {
         {solicitud.motivo_rechazo && <p className="cc-tenue">Motivo del rechazo: {solicitud.motivo_rechazo}</p>}
       </div>
 
+      {solicitud.aval_coordinador !== null && (
+        <div className={`cc-aviso ${solicitud.aval_coordinador ? 'cc-av-ok' : 'cc-av-oro'}`}>
+          <strong>{solicitud.aval_coordinador ? 'Avalada por el coordinador' : 'El coordinador no la avaló'}</strong>
+          {solicitud.observacion_coordinador && <> — {solicitud.observacion_coordinador}</>}
+          {' · '}{fechaHora(solicitud.fecha_aval_coordinador)}
+        </div>
+      )}
+
       <div className="cc-card">
         <h2>Historial</h2>
         <ul className="cc-linea">
@@ -115,6 +125,29 @@ export function SolicitudDetailPage() {
           ))}
         </ul>
       </div>
+
+      {puedeAvalar && (
+        <div className="cc-card">
+          <h2>Tu aval como coordinador</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Avales o no, la solicitud continúa al DAF. Lo que cambia es el dictamen que va adjunto.
+          </p>
+          <div className="cc-campo" style={{ maxWidth: 460 }}>
+            <label>Observación (obligatoria si no la avalas)</label>
+            <input value={observacion} onChange={(e) => setObservacion(e.target.value)} />
+          </div>
+          <div className="cc-acc">
+            <button className="cc-btn cc-btn-ok" disabled={trabajando}
+              onClick={() => accion(() => avalarSolicitud(solicitud.id, true, observacion), 'Aval registrado. La solicitud pasó al DAF.')}>
+              Avalar
+            </button>
+            <button className="cc-btn cc-btn-r" disabled={trabajando || !observacion.trim()}
+              onClick={() => accion(() => avalarSolicitud(solicitud.id, false, observacion), 'Registrado. La solicitud pasó al DAF con tu observación.')}>
+              No avalar
+            </button>
+          </div>
+        </div>
+      )}
 
       {puedeDecidir && (
         <div className="cc-card">
