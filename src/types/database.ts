@@ -2,7 +2,7 @@ export type Rol = 'super_admin' | 'solicitante' | 'daf' | 'admin_caja' | 'contab
 
 export type EstadoSolicitud =
   | 'pendiente_coordinador' | 'pendiente_daf' | 'aprobado_daf' | 'desembolsado'
-  | 'pendiente_devolucion' | 'completado' | 'rechazado'
+  | 'pendiente_devolucion' | 'pendiente_verificacion' | 'completado' | 'rechazado'
 
 export type EstadoInforme = 'borrador' | 'pendiente_daf' | 'aprobado_daf' | 'completado' | 'rechazado'
 export type TipoComprobante = 'compra' | 'devolucion'
@@ -83,6 +83,10 @@ export interface Solicitud {
   limite_tiempo_devolucion: string | null
   fecha_rendicion: string | null
   fecha_cierre: string | null
+  fecha_recepcion_fisica: string | null
+  verificado_por_id: string | null
+  conforme_fisica: boolean | null
+  observacion_fisica: string | null
   admin_caja_id: string | null
   aprobado_por_id: string | null
   solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null
@@ -167,6 +171,7 @@ export const ETIQUETA_ESTADO: Record<EstadoSolicitud, string> = {
   aprobado_daf: 'Lista para desembolso',
   desembolsado: 'Por rendir',
   pendiente_devolucion: 'Devolución pendiente',
+  pendiente_verificacion: 'Falta entregar el físico',
   completado: 'Cerrada',
   rechazado: 'Rechazada'
 }

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
-  obtenerSolicitud, reportarGasto, subirComprobante, urlPublica, validarDevolucion
+  obtenerSolicitud, reportarGasto, subirComprobante, urlPublica, validarDevolucion, verificarFisica
 } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora, horasRestantes } from '../lib/formato'
@@ -24,6 +24,7 @@ export function SolicitudDetailPage() {
   const [exito, setExito] = useState<string | null>(null)
   const [motivo, setMotivo] = useState('')
   const [observacion, setObservacion] = useState('')
+  const [obsFisica, setObsFisica] = useState('')
   const [montoReal, setMontoReal] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -49,6 +50,7 @@ export function SolicitudDetailPage() {
   const puedeDecidir = ['daf', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_daf'
   const puedeDesembolsar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'aprobado_daf'
   const puedeValidar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_devolucion'
+  const puedeCotejar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_verificacion'
   const puedeRendir = esPropia && solicitud.estado === 'desembolsado'
   const horas = horasRestantes(solicitud.limite_tiempo_devolucion)
   const diferencia = Number(solicitud.monto_solicitado) - Number(solicitud.monto_real ?? 0)
@@ -88,6 +90,9 @@ export function SolicitudDetailPage() {
             <tr><td>Categoría</td><td className="num">{solicitud.categoria ?? '—'}</td></tr>
             <tr><td>Desembolsado</td><td className="num">{fechaHora(solicitud.fecha_desembolso)}</td></tr>
             <tr><td>Vence</td><td className="num">{fechaHora(solicitud.limite_tiempo_devolucion)}</td></tr>
+            {solicitud.fecha_recepcion_fisica && (
+              <tr><td>Físico recibido</td><td className="num">{fechaHora(solicitud.fecha_recepcion_fisica)}</td></tr>
+            )}
             {solicitud.origen_decision && (
               <tr><td>Decisión tomada desde</td><td className="num">{solicitud.origen_decision}</td></tr>
             )}
@@ -214,6 +219,47 @@ export function SolicitudDetailPage() {
           <h2>Falta devolver la diferencia</h2>
           <p className="cc-tenue">Debes transferir {bs(diferencia)} y subir el comprobante del depósito.</p>
           <Link className="cc-btn cc-btn-p" to={`/devoluciones/${solicitud.id}`}>Ir a la devolución</Link>
+        </div>
+      )}
+
+      {solicitud.estado === 'pendiente_verificacion' && esPropia && (
+        <div className={`cc-aviso ${solicitud.conforme_fisica === false ? 'cc-av-mal' : 'cc-av-oro'}`}>
+          {solicitud.conforme_fisica === false
+            ? `El administrador observó tu documentación: ${solicitud.observacion_fisica ?? ''}`
+            : 'Ya rendiste en el sistema. Falta entregar en físico el vale y las facturas con la firma y el sello de tu coordinador al reverso.'}
+        </div>
+      )}
+
+      {puedeCotejar && (
+        <div className="cc-card">
+          <h2>Cotejo de la documentación física</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Verifica que el vale y las facturas entregadas en papel coincidan con lo cargado, y que lleven
+            firma y sello del coordinador al reverso.
+          </p>
+          {solicitud.conforme_fisica === false && solicitud.observacion_fisica && (
+            <div className="cc-aviso cc-av-oro">Observación anterior: {solicitud.observacion_fisica}</div>
+          )}
+          <div className="cc-campo" style={{ maxWidth: 460 }}>
+            <label>Observación (obligatoria si no coincide)</label>
+            <input value={obsFisica} onChange={(e) => setObsFisica(e.target.value)} />
+          </div>
+          <div className="cc-acc">
+            <button className="cc-btn cc-btn-ok" disabled={trabajando}
+              onClick={() => accion(
+                () => verificarFisica(solicitud.id, true, obsFisica, perfil!.id),
+                'Documentación conforme. La solicitud queda cerrada.'
+              )}>
+              Recibí y coincide
+            </button>
+            <button className="cc-btn cc-btn-r" disabled={trabajando || !obsFisica.trim()}
+              onClick={() => accion(
+                () => verificarFisica(solicitud.id, false, obsFisica, perfil!.id),
+                'Observación registrada. El solicitante ya fue notificado.'
+              )}>
+              Observar
+            </button>
+          </div>
         </div>
       )}
 

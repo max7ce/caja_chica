@@ -14,7 +14,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
   { a: '/solicitudes/nueva', texto: 'Pedir caja chica', Icono: PlusCircle, roles: ['super_admin', 'solicitante'] },
   { a: '/aprobaciones', texto: 'Por autorizar', Icono: CheckCircle2, roles: ['super_admin', 'daf'] },
   { a: '/caja/desembolsos', texto: 'Desembolsar', Icono: Wallet, roles: ['super_admin', 'admin_caja'] },
-  { a: '/caja/validar-devoluciones', texto: 'Validar devoluciones', Icono: RefreshCcw, roles: ['super_admin', 'admin_caja'] },
+  { a: '/caja/validar-devoluciones', texto: 'Validar rendiciones', Icono: RefreshCcw, roles: ['super_admin', 'admin_caja'] },
   { a: '/rendicion-cuentas', texto: 'Rendición', Icono: FileText, roles: ['super_admin', 'admin_caja', 'daf', 'contabilidad'] },
   { a: '/reposiciones', texto: 'Reposiciones', Icono: Banknote, roles: ['contabilidad', 'super_admin'] },
   { a: '/rendiciones-admin', texto: 'Rendiciones por admin', Icono: Building2, roles: ['super_admin', 'daf', 'contabilidad'] },

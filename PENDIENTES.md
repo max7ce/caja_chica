@@ -52,6 +52,18 @@ Cerrado: el administrador arma el informe, el DAF lo aprueba, contabilidad trans
 
 Contabilidad solo puede cerrar informes ya aprobados por el DAF, y no puede tocar los montos: lo garantiza el trigger `proteger_informe`, no la interfaz.
 
+## Verificación física (migración 06)
+
+Ninguna solicitud se cierra sin que el administrador de caja reciba el vale y las facturas en papel, con firma y sello del coordinador al reverso, y confirme que coinciden con lo cargado. Antes, una rendición sin diferencia que devolver se cerraba sola.
+
+Un trigger impide que alguien cierre su propia solicitud, incluso con permisos de administrador.
+
+Pendiente de contrastar con la norma vigente (ver INVENTARIO-Y-ANALISIS de la documentación histórica):
+- Plazo: el reglamento de 2016 dice 24 horas; el sistema aplica 48 horas hábiles.
+- Fondo: las planillas históricas del Campus Central usan Bs 3.500; el sistema está en Bs 7.000.
+- Formularios del reglamento que el sistema no emite: vale (Anexo 2), descargo de pasajes (Anexo 3), arqueo (Anexo 5).
+- Categorías: conviene adoptar la lista taxativa del artículo 6° en lugar de las inventadas.
+
 ## Deuda conocida
 
 - El bundle pesa 1 MB sin dividir. Carga bien, pero conviene separarlo por rutas si crece.

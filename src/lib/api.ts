@@ -159,6 +159,11 @@ export async function desembolsar(solicitud: Solicitud, adminCajaId: string, per
   if (e2) throw e2
 }
 
+/**
+ * El solicitante declara el gasto. Nunca cierra la solicitud: si no hay
+ * diferencia que devolver, queda esperando que el administrador reciba y
+ * coteje los documentos físicos.
+ */
 export async function reportarGasto(solicitud: Solicitud, montoReal: number) {
   const hayDiferencia = montoReal < Number(solicitud.monto_solicitado)
   const { error } = await supabase
@@ -166,7 +171,7 @@ export async function reportarGasto(solicitud: Solicitud, montoReal: number) {
     .update({
       monto_real: montoReal,
       fecha_rendicion: new Date().toISOString(),
-      estado: hayDiferencia ? 'pendiente_devolucion' : 'completado'
+      estado: hayDiferencia ? 'pendiente_devolucion' : 'pendiente_verificacion'
     })
     .eq('id', solicitud.id)
   if (error) throw error
@@ -236,8 +241,9 @@ export async function validarDevolucion(m: MovimientoCaja, adminCajaId: string) 
   if (e1) throw e1
 
   if (m.solicitud_id) {
+    // Validado el depósito, todavía falta el cotejo del físico.
     const { error: e2 } = await supabase
-      .from('solicitudes').update({ estado: 'completado' }).eq('id', m.solicitud_id)
+      .from('solicitudes').update({ estado: 'pendiente_verificacion' }).eq('id', m.solicitud_id)
     if (e2) throw e2
     await agendarAviso('devolucion_validada', 'whatsapp', m.solicitud!.solicitante_id, m.solicitud_id, {
       monto: m.monto
@@ -555,5 +561,27 @@ export async function crearCategoria(nombre: string, orden: number) {
 
 export async function actualizarCategoria(id: string, cambios: Partial<Categoria>) {
   const { error } = await supabase.from('categorias').update(cambios).eq('id', id)
+  if (error) throw error
+}
+
+/* --------------------------------------------- verificación física */
+
+/**
+ * Cotejo de la documentación física contra lo cargado en el sistema.
+ *
+ * Conforme cierra la solicitud. No conforme la deja abierta con la
+ * observación a la vista del solicitante, que debe corregir y volver a
+ * presentar los papeles.
+ */
+export async function verificarFisica(
+  solicitudId: string, conforme: boolean, observacion: string, adminId: string
+) {
+  const { error } = await supabase.from('solicitudes').update({
+    conforme_fisica: conforme,
+    observacion_fisica: observacion.trim() || null,
+    fecha_recepcion_fisica: new Date().toISOString(),
+    verificado_por_id: adminId,
+    ...(conforme ? { estado: 'completado' } : {})
+  }).eq('id', solicitudId).eq('estado', 'pendiente_verificacion')
   if (error) throw error
 }

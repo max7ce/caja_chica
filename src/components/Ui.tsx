@@ -7,6 +7,7 @@ const CLASE: Record<EstadoSolicitud, string> = {
   aprobado_daf: 'cc-curso',
   desembolsado: 'cc-curso',
   pendiente_devolucion: 'cc-espera',
+  pendiente_verificacion: 'cc-espera',
   completado: 'cc-ok',
   rechazado: 'cc-mal'
 }
