@@ -24,7 +24,9 @@ Estado al 14 de septiembre de 2026. Ordenado por lo que más duele si falta.
 
 ## Pendiente de programar
 
-**Envío real de avisos.** El despachador y el webhook están escritos pero nunca se ejecutaron contra Meta ni Resend. Falta: cuenta de Meta Business, número verificado, plantillas aprobadas, dominio remitente con DNS. Hasta entonces la agenda se llena pero no sale nada.
+**Envío real de avisos.** El push a la aplicación instalada funciona en cuanto se carguen las claves VAPID en Netlify: no depende de nadie externo. WhatsApp y correo siguen pendientes de trámites: cuenta de Meta Business, número verificado, plantillas aprobadas, dominio remitente con DNS.
+
+**Las 17 plantillas del despachador están completas.** Antes faltaban seis (aval, verificación física, reposiciones) y esos avisos habrían fallado en silencio con "plantilla desconocida".
 
 **Reenvío diario del aviso vencido.** Hoy el aviso de plazo vencido se manda una sola vez. Falta que al enviarse agende el siguiente para 24 horas después.
 
