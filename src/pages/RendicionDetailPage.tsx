@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { listarComprobantes, obtenerInforme, registrarReposicion, resolverInforme, urlPublica } from '../lib/api'
-import { exportarInforme } from '../lib/exportar'
+import {
+  enviarInformeAlDaf, facturasDeInforme, listarComprobantes, obtenerInforme,
+  registrarReposicion, resolverInforme, subirReporteContable, urlPublica
+} from '../lib/api'
+import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
 import { ValeQR } from '../components/ValeQR'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
-import type { Comprobante, InformeRendicion, Profile, Solicitud } from '../types/database'
+import type { Comprobante, Factura, InformeRendicion, Profile, Solicitud } from '../types/database'
 
 export function RendicionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -15,6 +18,9 @@ export function RendicionDetailPage() {
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
   const [adjuntos, setAdjuntos] = useState<Comprobante[]>([])
   const [admin, setAdmin] = useState<Profile | null>(null)
+  const [facturas, setFacturas] = useState<Factura[]>([])
+  const [reporte, setReporte] = useState<File | null>(null)
+  const [nroReporte, setNroReporte] = useState('')
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -26,6 +32,7 @@ export function RendicionDetailPage() {
       setInforme(informe); setSolicitudes(solicitudes); setAdmin(admin)
       const listas = await Promise.all(solicitudes.map((s) => listarComprobantes(s.id)))
       setAdjuntos(listas.flat())
+      setFacturas(await facturasDeInforme(solicitudes.map((s) => s.id)))
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
   }, [id])
   useEffect(() => { cargar() }, [cargar])
@@ -34,6 +41,8 @@ export function RendicionDetailPage() {
   if (!informe) return <div className="cc-card"><h2>No encontramos ese informe.</h2></div>
 
   const rol = perfil!.role
+  const esAdminDelInforme = ['admin_caja', 'super_admin'].includes(rol)
+  const enBorrador = informe.estado === 'borrador'
   const puedeResolver = ['daf', 'super_admin'].includes(rol) && informe.estado === 'pendiente_daf'
   // La reposición la procesa contabilidad, no el administrador de caja:
   // quien recibe el dinero no puede ser quien declara haberlo recibido.
@@ -55,6 +64,13 @@ export function RendicionDetailPage() {
             'Informe descargado.'
           )}>
           Descargar en Excel
+        </button>
+        <button className="cc-btn cc-btn-x"
+          onClick={() => accion(
+            () => exportarDatosFiscales(facturas, solicitudes, fecha(informe!.fecha_creacion).replace(/\//g, '-')),
+            `Planilla con ${facturas.length} factura(s) descargada.`
+          )}>
+          Datos fiscales ({facturas.length})
         </button>
       </div>
       <Cabecera titulo={`Informe del ${fecha(informe.fecha_creacion)}`} />
@@ -108,6 +124,78 @@ export function RendicionDetailPage() {
           ))}
         </ul>
       </div>
+
+      {esAdminDelInforme && enBorrador && (
+        <div className="cc-card">
+          <h2>Antes de enviarlo al DAF</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Las facturas de este informe se cargan en el sistema contable de la universidad con tu rol
+            especial en ese sistema. El reporte que emite ahí es el respaldo con el que el DAF autoriza
+            la reposición, así que va adjunto al informe.
+          </p>
+
+          <p><strong>1.</strong> Descarga la planilla con los datos fiscales de las {facturas.length} factura(s)
+            de este informe.</p>
+          <button className="cc-btn" style={{ marginBottom: 18 }}
+            onClick={() => accion(
+              () => exportarDatosFiscales(facturas, solicitudes, fecha(informe!.fecha_creacion).replace(/\//g, '-')),
+              'Planilla descargada.'
+            )}>
+            Datos fiscales para el sistema contable
+          </button>
+
+          <p><strong>2.</strong> Cárgalas en el sistema contable y sube el reporte que te devuelve.</p>
+          <div className="cc-dos">
+            <div className="cc-campo">
+              <label>Nº de reporte o comprobante contable</label>
+              <input value={nroReporte} onChange={(e) => setNroReporte(e.target.value)} />
+            </div>
+            <div className="cc-campo">
+              <label>Archivo del reporte</label>
+              <input type="file" accept="application/pdf,image/*"
+                onChange={(e) => setReporte(e.target.files?.[0] ?? null)} />
+            </div>
+          </div>
+          <button className="cc-btn" disabled={!reporte || trabajando}
+            onClick={() => accion(
+              () => subirReporteContable(informe!.id, reporte!, nroReporte),
+              'Reporte contable adjuntado.'
+            )}>
+            Adjuntar reporte contable
+          </button>
+
+          {informe.reporte_contable_url && (
+            <div className="cc-aviso cc-av-ok" style={{ marginTop: 18 }}>
+              Reporte adjunto{informe.reporte_contable_nro && ` — Nº ${informe.reporte_contable_nro}`} ·{' '}
+              <a href={urlPublica(informe.reporte_contable_url)} target="_blank" rel="noreferrer">abrir</a>
+            </div>
+          )}
+
+          <p style={{ marginTop: 18 }}><strong>3.</strong> Envíalo al DAF para que autorice la reposición.</p>
+          <button className="cc-btn cc-btn-p" disabled={trabajando || !informe.reporte_contable_url}
+            onClick={() => accion(() => enviarInformeAlDaf(informe!), 'Informe enviado al DAF.')}>
+            Enviar al DAF
+          </button>
+          {!informe.reporte_contable_url && (
+            <p className="cc-tenue" style={{ fontSize: 13 }}>
+              Sin el reporte contable adjunto no se puede enviar.
+            </p>
+          )}
+        </div>
+      )}
+
+      {informe.reporte_contable_url && !enBorrador && (
+        <div className="cc-card">
+          <h2>Respaldo contable</h2>
+          <p style={{ marginTop: 0 }}>
+            Las facturas fueron cargadas en el sistema contable
+            {informe.reporte_contable_nro && ` bajo el Nº ${informe.reporte_contable_nro}`}.{' '}
+            <a href={urlPublica(informe.reporte_contable_url)} target="_blank" rel="noreferrer">
+              Ver el reporte
+            </a>
+          </p>
+        </div>
+      )}
 
       {puedeResolver && (
         <div className="cc-card">

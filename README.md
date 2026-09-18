@@ -192,3 +192,83 @@ La cadena de aprobación tiene dos niveles: el coordinador de la oficina avala, 
 **Cómo aplicarla.** En el SQL Editor: primero la línea del §1 sola —Postgres no permite usar un valor nuevo de un enum en la misma transacción en que se crea— y después todo el §2 junto.
 
 **Importación con oficinas.** La plantilla ahora incluye `oficina` y `cargo`. Al importar se crean las oficinas que falten y quien tenga cargo `COORDINADOR` queda asignado como responsable de la suya. Si el correo ya existía, no se toca ni el rol ni la contraseña, pero sí se actualiza la oficina: es lo que define quién avala.
+
+---
+
+## 10. Notificaciones push (migración 07)
+
+**Qué es y qué no es.** Una PWA no se ejecuta en segundo plano. Lo que sí ocurre: el sistema operativo despierta al service worker cuando llega un push, muestra la notificación y lo vuelve a dormir. El resultado práctico es el mismo —el aviso aparece con la app cerrada— pero la aplicación no está corriendo ni consumiendo batería.
+
+**Cómo se activa.** Cada persona entra a Mi perfil y pulsa "Activar notificaciones aquí". Es por dispositivo: el celular y la computadora se registran por separado y ambos reciben.
+
+**iPhone.** Solo funciona si la aplicación está instalada desde Safari con Compartir → Añadir a pantalla de inicio. Abierta como pestaña del navegador, iOS no entrega push. Hay que decírselo a la gente o la mitad va a creer que no funciona.
+
+**Variables que hay que cargar en Netlify** (sin prefijo `VITE_`):
+
+```
+VAPID_PUBLIC_KEY   = BMYuTFRU9SnE7dyCmlN1JBYzF6nOLY9lI6YM2yHMfuZxcisQBFU73r--iy2ZiJLoXSc_Ma-1kGv_hMvx1tkRIFc
+VAPID_PRIVATE_KEY  = f_lT7sEABnAPf_jBp_6YZEQr6thiEAzDiv-1w0WiYlw
+VAPID_SUBJECT      = mailto:cajachica@ucb.edu.bo
+```
+
+La pública además se guarda en `parametros.vapid_public_key`, y la migración 07 ya la deja escrita. Si alguna vez se regenera el par, hay que actualizar las dos.
+
+**Cómo llegan los avisos.** El despachador manda push a todos los dispositivos registrados de la persona, además del canal que corresponda al aviso. El push es el más inmediato y el que no cuesta nada, así que se envía siempre; WhatsApp y correo siguen sus propias reglas.
+
+**Suscripciones caducadas.** Cuando un dispositivo se formatea o se desinstala la app, el servidor de push responde 404 o 410 y el despachador borra esa suscripción automáticamente. Sin eso, la tabla se llenaría de dispositivos muertos que se reintentan para siempre.
+
+---
+
+## 11. Datos fiscales desde el QR de la factura (migración 09)
+
+Contabilidad carga cada factura a mano en su sistema. Cuatro de los cinco datos que necesita ya están en el QR fiscal.
+
+**Qué trae el QR.** Las facturas de facturación en línea llevan una URL del SIAT con el NIT del vendedor, el CUF —que es el código de autorización— y el número de factura. La fecha y hora exactas no están en la URL pero sí dentro del propio CUF: es la representación en base 16 de una cadena que empieza con el NIT del emisor seguido de la fecha. `fechaDesdeCUF` la reconstruye probando corte por corte hasta que el resultado empieza con el NIT.
+
+Comprobado contra una factura real: el CUF devolvió 29/05/2025 10:06:23, idéntico a lo impreso.
+
+**Lo único que se escribe es el monto.** El QR no lo incluye.
+
+**Facturas antiguas.** Las de facturación computarizada llevan en el QR una cadena suelta con el código de autorización, sin NIT ni número separables. El sistema la reconoce, la guarda como código de autorización y deja los demás campos para completar a mano. La columna "Origen" del Excel distingue lo leído por QR de lo escrito.
+
+**Cómo se usa.** En el detalle de la solicitud, sección "Facturas de esta compra": escanear con la cámara, o leer el QR desde una foto ya tomada. Después, el botón "Datos fiscales para contabilidad" en el informe de rendición exporta una fila por factura, en el orden en que se tipean.
+
+**Dos detalles que evitan errores caros:**
+
+Los códigos van como texto en el Excel, no como número. Un CUF de 56 caracteres o un NIT que empiece en cero se corrompen si Excel los interpreta como cifra.
+
+El NIT de la universidad, 1020141023, es el del comprador. Si aparece cargado como NIT del vendedor, el formulario lo advierte: significa que se está copiando el campo equivocado.
+
+**Límite conocido.** Una foto de la hoja completa suele dejar el QR con muy pocos píxeles para decodificar. Hay que acercarse al código: en las pruebas, las fotos en primer plano se leyeron cuatro de cinco veces; las de la hoja entera, ninguna.
+
+---
+
+## 12. Facturas desde el PDF (migración 10)
+
+El camino principal para registrar los datos fiscales es el PDF que entrega el portal de Impuestos Nacionales. Trae el texto seleccionable, así que se leen los seis datos sin escribir ninguno: NIT del vendedor, número, fecha, monto, código de autorización y a nombre de quién está emitida. El QR, en cambio, no incluye el monto.
+
+**Cómo lo hace.** `pdf.js` extrae el texto en el navegador y lo reagrupa por línea usando la coordenada vertical de cada fragmento, porque los rótulos y sus valores viven en columnas distintas del mismo renglón. Después, expresiones regulares sacan cada campo.
+
+**Dos trampas resueltas:**
+
+El código de autorización viene partido en varias líneas, y en la maquetación de hoja ancha el teléfono del proveedor cae en la misma zona. Un teléfono son dígitos, y los dígitos son hexadecimal válido, así que ninguna validación de formato lo detectaría: se descarta por su rótulo.
+
+El código resultante se valida decodificándolo. Un CUF correcto empieza siempre con el NIT del emisor seguido de la fecha y hora, de modo que si quedó mal recortado simplemente no decodifica. Esa misma decodificación da la fecha exacta, que prevalece sobre la impresa por no depender de cómo cada proveedor maquete su factura.
+
+**Verificado contra cuatro facturas reales**, de tres proveedores y dos maquetaciones distintas: los seis campos salieron correctos en las cuatro, y las fechas derivadas del código coinciden al segundo con las impresas.
+
+**La factura tiene que estar emitida a la universidad.** El NIT institucional vive en `parametros.nit_institucion`. Si el cliente de la factura no coincide, el formulario lo advierte en rojo: sin ese NIT no hay crédito fiscal y contabilidad no la puede cargar.
+
+---
+
+## 13. Carga contable antes del envío al DAF (migración 11)
+
+Quien registra las facturas en el sistema contable de la universidad es el **administrador de caja**, con su rol habilitado en ese sistema, y lo hace antes de remitir el informe. El reporte que ese sistema emite se adjunta al informe: es el respaldo con el que el DAF autoriza la reposición.
+
+Contabilidad ya no carga facturas. Solo procesa la transferencia.
+
+**El informe nace en borrador.** Antes se creaba ya enviado al DAF. Ahora queda en borrador con tres pasos a la vista: descargar la planilla de datos fiscales, cargarla en el sistema contable y subir su reporte, y recién entonces enviar.
+
+**El requisito está en la base.** El trigger `exigir_reporte_contable` rechaza el paso de borrador a pendiente_daf sin `reporte_contable_url`. No es solo un botón deshabilitado en la interfaz.
+
+**El aviso al DAF se movió.** Antes se enviaba al crear el informe; ahora al remitirlo. Sin ese cambio el DAF recibiría un aviso por un informe que todavía no puede revisar.

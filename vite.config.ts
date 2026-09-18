@@ -9,6 +9,11 @@ export default defineConfig({
       // El service worker se actualiza solo, pero avisa antes de recargar:
       // recargar sin avisar en medio de un formulario perdería lo escrito.
       registerType: 'prompt',
+      // injectManifest y no generateSW: el service worker es nuestro, porque
+      // tiene que atender los eventos push y notificationclick.
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.ts',
       includeAssets: ['apple-touch-icon.png', 'logo-ucb.png'],
       manifest: {
         name: 'Caja chica · UCB Tarija',
@@ -31,18 +36,11 @@ export default defineConfig({
           { name: 'Mis solicitudes', url: '/solicitudes' }
         ]
       },
-      workbox: {
-        globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        navigateFallback: '/index.html',
-        // Nunca cachear la API ni el almacenamiento: los datos de dinero
-        // deben venir siempre del servidor, no de una copia vieja.
-        navigateFallbackDenylist: [/^\/\.netlify\//],
-        runtimeCaching: [
-          {
-            urlPattern: ({ url }) => url.hostname.endsWith('supabase.co'),
-            handler: 'NetworkOnly'
-          }
-        ]
+      injectManifest: {
+        // Solo el armazón. Los datos de dinero nunca se cachean: el service
+        // worker no intercepta las llamadas a Supabase, así que siempre salen
+        // a la red.
+        globPatterns: ['**/*.{js,css,html,png,svg,woff2}']
       }
     })
   ],

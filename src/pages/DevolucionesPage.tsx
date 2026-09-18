@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { obtenerSolicitud, registrarDevolucion, subirComprobante } from '../lib/api'
+import { devolucionEnviada, obtenerSolicitud, registrarDevolucion, subirComprobante } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs } from '../lib/formato'
 import { ValeQR } from '../components/ValeQR'
 import { SubirArchivo } from '../components/SubirArchivo'
 import { Cabecera, Cargando, Error as AvisoError, Exito } from '../components/Ui'
-import type { Solicitud } from '../types/database'
+import type { MovimientoCaja, Solicitud } from '../types/database'
+import { Link } from 'react-router-dom'
+import { fechaHora } from '../lib/formato'
 
 export function DevolucionesPage() {
   const { solicitudId } = useParams<{ solicitudId: string }>()
@@ -14,6 +16,7 @@ export function DevolucionesPage() {
   const navegar = useNavigate()
   const [solicitud, setSolicitud] = useState<Solicitud | null>(null)
   const [archivo, setArchivo] = useState<File | null>(null)
+  const [yaEnviada, setYaEnviada] = useState<MovimientoCaja | null>(null)
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
@@ -21,8 +24,12 @@ export function DevolucionesPage() {
 
   useEffect(() => {
     ;(async () => {
-      try { setSolicitud(await obtenerSolicitud(solicitudId!)) }
-      catch (e: any) { setError(e.message) } finally { setCargando(false) }
+      try {
+        const [sol, mov] = await Promise.all([
+          obtenerSolicitud(solicitudId!), devolucionEnviada(solicitudId!)
+        ])
+        setSolicitud(sol); setYaEnviada(mov)
+      } catch (e: any) { setError(e.message) } finally { setCargando(false) }
     })()
   }, [solicitudId])
 
@@ -65,10 +72,19 @@ export function DevolucionesPage() {
           }}
         />
       </div>
+      {yaEnviada && (
+        <div className="cc-aviso cc-av-ok">
+          Ya enviaste el comprobante de esta devolución el {fechaHora(yaEnviada.created_at)}. Está
+          esperando que el administrador de caja lo valide; no hace falta volver a enviarlo.{' '}
+          <Link to={`/solicitudes/${solicitud.id}`}>Ver la solicitud</Link>
+        </div>
+      )}
+
       <div className="cc-card" style={{ maxWidth: 560 }}>
         <h2>Comprobante del depósito</h2>
-        <SubirArchivo etiqueta="Captura o PDF de la transferencia" onSeleccion={setArchivo} disabled={trabajando} />
-        <button className="cc-btn cc-btn-p" disabled={!archivo || trabajando} onClick={enviar}>
+        <SubirArchivo etiqueta="Captura o PDF de la transferencia" onSeleccion={setArchivo}
+          disabled={trabajando || !!yaEnviada} />
+        <button className="cc-btn cc-btn-p" disabled={!archivo || trabajando || !!yaEnviada} onClick={enviar}>
           {trabajando ? 'Enviando…' : 'Enviar devolución'}
         </button>
       </div>

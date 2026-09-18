@@ -1,5 +1,5 @@
 import writeXlsxFile, { getSheetData } from 'write-excel-file/browser'
-import type { InformeRendicion, Solicitud } from '../types/database'
+import type { Factura, InformeRendicion, Solicitud } from '../types/database'
 
 const CABECERA = { fontWeight: 'bold' as const, backgroundColor: '#f8f9fa' }
 const fecha = (d: string | null | undefined) =>
@@ -113,4 +113,62 @@ export async function exportarInformes(informes: InformeRendicion[], nombrePorId
     sheet: 'Rendiciones',
     columns: cols.map((c) => ({ width: c.width }))
   }).toFile(`rendiciones-${new Date().toISOString().slice(0, 10)}.xlsx`)
+}
+
+const NIT_UCB = '1020141023'
+
+/**
+ * Planilla de datos fiscales para cargar en el sistema de contabilidad.
+ *
+ * Una fila por factura, con las columnas en el orden en que se tipean.
+ * Los montos van como números y los códigos como texto: un CUF de 56
+ * caracteres o un NIT que empiece en cero se corrompen si Excel los
+ * interpreta como número.
+ */
+export async function exportarDatosFiscales(
+  facturas: Factura[],
+  solicitudes: Solicitud[],
+  etiquetaInforme: string
+) {
+  const porSolicitud = new Map(solicitudes.map((s) => [s.id, s]))
+
+  const revisar = (f: Factura) => {
+    const fallas: string[] = []
+    if (!f.nit_vendedor) fallas.push('sin NIT del vendedor')
+    if (!f.nro_factura) fallas.push('sin número')
+    if (!f.autorizacion) fallas.push('sin código de autorización')
+    if (!f.fecha_emision) fallas.push('sin fecha')
+    if (f.nit_vendedor === NIT_UCB) fallas.push('el NIT cargado es el de la UCB')
+    if (f.emitida_a_ucb === false) fallas.push('no está emitida a la UCB')
+    return fallas.length ? fallas.join(' · ') : 'Completa'
+  }
+
+  const cols = [
+    { header: { value: 'NIT vendedor', ...CABECERA }, width: 16,
+      cell: (f: Factura) => ({ value: f.nit_vendedor ?? '', type: String }) },
+    { header: { value: 'Razón social', ...CABECERA }, width: 34,
+      cell: (f: Factura) => ({ value: f.razon_social ?? '', type: String }) },
+    { header: { value: 'Nº factura', ...CABECERA }, width: 14,
+      cell: (f: Factura) => ({ value: f.nro_factura ?? '', type: String }) },
+    { header: { value: 'Fecha', ...CABECERA }, width: 12,
+      cell: (f: Factura) => ({ value: fecha(f.fecha_emision), type: String }) },
+    { header: { value: 'Monto Bs', ...CABECERA }, width: 14,
+      cell: (f: Factura) => ({ value: Number(f.monto), type: Number, format: '#,##0.00' }) },
+    { header: { value: 'Código de autorización', ...CABECERA }, width: 60,
+      cell: (f: Factura) => ({ value: f.autorizacion ?? '', type: String }) },
+    { header: { value: 'Solicitud', ...CABECERA }, width: 34,
+      cell: (f: Factura) => ({ value: porSolicitud.get(f.solicitud_id)?.descripcion ?? '', type: String }) },
+    { header: { value: 'Solicitante', ...CABECERA }, width: 30,
+      cell: (f: Factura) => ({
+        value: porSolicitud.get(f.solicitud_id)?.solicitante?.full_name ?? '', type: String }) },
+    { header: { value: 'Origen', ...CABECERA }, width: 10,
+      cell: (f: Factura) => ({ value: f.origen === 'qr' ? 'QR' : 'manual', type: String }) },
+    { header: { value: 'Revisión', ...CABECERA }, width: 40,
+      cell: (f: Factura) => ({ value: revisar(f), type: String }) }
+  ]
+
+  await writeXlsxFile(getSheetData(facturas, cols), {
+    sheet: 'Datos fiscales',
+    columns: cols.map((c) => ({ width: c.width }))
+  }).toFile(`datos-fiscales-${etiquetaInforme}.xlsx`)
 }

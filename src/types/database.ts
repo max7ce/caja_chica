@@ -50,6 +50,9 @@ export interface Parametros {
   bloquear_si_vencida: boolean
   correos_contabilidad: string[]
   qr_caja_url: string | null
+  vapid_public_key: string | null
+  nit_institucion: string | null
+  razon_social_institucion: string | null
 }
 
 export interface Periodo {
@@ -92,6 +95,22 @@ export interface Solicitud {
   solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null
 }
 
+export interface Factura {
+  id: string
+  solicitud_id: string
+  comprobante_id: string | null
+  nit_vendedor: string | null
+  razon_social: string | null
+  nro_factura: string | null
+  autorizacion: string | null
+  fecha_emision: string | null
+  monto: number
+  emitida_a_ucb: boolean | null
+  origen: 'qr' | 'manual' | 'pdf'
+  qr_crudo: string | null
+  created_at: string
+}
+
 export interface Comprobante {
   id: string
   solicitud_id: string
@@ -128,6 +147,9 @@ export interface InformeRendicion {
   observaciones: string | null
   fecha_creacion: string
   fecha_envio_daf: string | null
+  reporte_contable_url: string | null
+  reporte_contable_nro: string | null
+  reporte_contable_fecha: string | null
   fecha_aprobacion_daf: string | null
 }
 

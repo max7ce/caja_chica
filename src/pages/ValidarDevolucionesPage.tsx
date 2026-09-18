@@ -65,6 +65,11 @@ export function ValidarDevolucionesPage() {
       />
       <AvisoError mensaje={error} />
       <div className="cc-card">
+        <h2>Depósitos por validar</h2>
+        <p className="cc-tenue" style={{ marginTop: 0 }}>
+          Revisa que el depósito exista y que el monto coincida. Al validarlo, el dinero vuelve al saldo
+          y la solicitud pasa al cotejo del papel, en la sección de abajo.
+        </p>
         {!lista.length ? <Vacio texto="No hay depósitos esperando validación." /> : (
           <div className="cc-scroll">
             <table className="cc-tabla">
@@ -99,7 +104,11 @@ export function ValidarDevolucionesPage() {
           y el sello de su coordinador al reverso, y que coincidan con lo cargado. Hasta entonces la
           solicitud no se cierra.
         </p>
-        {!porVerificar.length ? <Vacio texto="No hay documentación pendiente de cotejo." /> : (
+        {!porVerificar.length ? (
+          <Vacio texto={lista.length
+            ? 'Nada pendiente de cotejo todavía. Las solicitudes con devolución aparecen aquí recién después de validar el depósito, arriba.'
+            : 'No hay documentación pendiente de cotejo.'} />
+        ) : (
           <div className="cc-scroll">
             <table className="cc-tabla">
               <thead>

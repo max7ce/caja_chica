@@ -9,6 +9,7 @@ import { bs, fechaHora, horasRestantes } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Estado, Exito, Reloj } from '../components/Ui'
 import { ValeQR } from '../components/ValeQR'
 import { SubirArchivo } from '../components/SubirArchivo'
+import { FacturasDeSolicitud } from '../components/FacturasDeSolicitud'
 import type { Comprobante, MovimientoCaja, Solicitud } from '../types/database'
 
 export function SolicitudDetailPage() {
@@ -51,6 +52,9 @@ export function SolicitudDetailPage() {
   const puedeDesembolsar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'aprobado_daf'
   const puedeValidar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_devolucion'
   const puedeCotejar = ['admin_caja', 'super_admin'].includes(rol) && solicitud.estado === 'pendiente_verificacion'
+  const devolucionPendiente = movimientos.find(
+    (m) => m.tipo === 'devolucion' && m.estado === 'pendiente_validacion'
+  )
   const puedeRendir = esPropia && solicitud.estado === 'desembolsado'
   const horas = horasRestantes(solicitud.limite_tiempo_devolucion)
   const diferencia = Number(solicitud.monto_solicitado) - Number(solicitud.monto_real ?? 0)
@@ -195,6 +199,13 @@ export function SolicitudDetailPage() {
         </div>
       )}
 
+      {['desembolsado', 'pendiente_devolucion', 'pendiente_verificacion', 'completado'].includes(solicitud.estado) && (
+        <FacturasDeSolicitud
+          solicitudId={solicitud.id}
+          editable={esPropia && ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado)}
+        />
+      )}
+
       {puedeRendir && (
         <div className="cc-card" style={{ maxWidth: 560 }}>
           <h2>Rendir el gasto</h2>
@@ -215,11 +226,19 @@ export function SolicitudDetailPage() {
       )}
 
       {solicitud.estado === 'pendiente_devolucion' && esPropia && (
-        <div className="cc-card">
-          <h2>Falta devolver la diferencia</h2>
-          <p className="cc-tenue">Debes transferir {bs(diferencia)} y subir el comprobante del depósito.</p>
-          <Link className="cc-btn cc-btn-p" to={`/devoluciones/${solicitud.id}`}>Ir a la devolución</Link>
-        </div>
+        devolucionPendiente ? (
+          <div className="cc-aviso cc-av-ok">
+            Ya enviaste el comprobante de {bs(devolucionPendiente.monto)} el{' '}
+            {fechaHora(devolucionPendiente.created_at)}. El administrador de caja tiene que validarlo;
+            no hace falta volver a enviarlo.
+          </div>
+        ) : (
+          <div className="cc-card">
+            <h2>Falta devolver la diferencia</h2>
+            <p className="cc-tenue">Debes transferir {bs(diferencia)} y subir el comprobante del depósito.</p>
+            <Link className="cc-btn cc-btn-p" to={`/devoluciones/${solicitud.id}`}>Ir a la devolución</Link>
+          </div>
+        )
       )}
 
       {solicitud.estado === 'pendiente_verificacion' && esPropia && (

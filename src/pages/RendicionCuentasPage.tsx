@@ -48,6 +48,10 @@ export function RendicionCuentasPage() {
       {puedeCrear && (
         <div className="cc-card">
           <h2>Armar un informe nuevo</h2>
+        <p className="cc-tenue" style={{ marginTop: 0 }}>
+          El informe queda en borrador. Después hay que cargar sus facturas en el sistema contable y
+          adjuntar el reporte que emite, y recién entonces se envía al DAF.
+        </p>
           {!candidatas.length ? <Vacio texto="No hay solicitudes sin rendir." /> : (
             <>
               <div className="cc-scroll">
@@ -93,7 +97,7 @@ export function RendicionCuentasPage() {
                     navegar(`/rendicion-cuentas/${id}`)
                   } catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
                 }}>
-                {trabajando ? 'Creando…' : `Enviar al DAF — ${seleccionadas.length} solicitudes, ${bs(total)}`}
+                {trabajando ? 'Creando…' : `Crear informe — ${seleccionadas.length} solicitudes, ${bs(total)}`}
               </button>
             </>
           )}

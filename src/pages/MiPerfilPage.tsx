@@ -1,21 +1,26 @@
-import { useState } from 'react'
-import { actualizarPerfil, subirQR, urlQR } from '../lib/api'
+import { useEffect, useState } from 'react'
+import {
+  actualizarPerfil, activarPush, desactivarPush, estadoPush, subirQR, urlQR
+} from '../lib/api'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Cabecera, Error as AvisoError, Exito } from '../components/Ui'
 import { ETIQUETA_ROL } from '../types/database'
 
 export function MiPerfilPage() {
-  const { perfil, recargar } = useAuth()
+  const { perfil, parametros, recargar } = useAuth()
   const [nombre, setNombre] = useState(perfil?.full_name ?? '')
   const [departamento, setDepartamento] = useState(perfil?.departamento ?? '')
   const [telefono, setTelefono] = useState(perfil?.telefono ?? '')
   const [optin, setOptin] = useState(!!perfil?.whatsapp_optin)
   const [password, setPassword] = useState('')
   const [qr, setQr] = useState<File | null>(null)
+  const [push, setPush] = useState<'sin-soporte' | 'bloqueado' | 'activo' | 'inactivo'>('inactivo')
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+
+  useEffect(() => { estadoPush().then(setPush) }, [])
 
   async function guardar(e: React.FormEvent) {
     e.preventDefault()
@@ -69,6 +74,61 @@ export function MiPerfilPage() {
         </div>
         <button className="cc-btn cc-btn-p" disabled={trabajando}>Guardar cambios</button>
       </form>
+
+      <div className="cc-card" style={{ maxWidth: 560 }}>
+        <h2>Notificaciones en este dispositivo</h2>
+        <p className="cc-tenue" style={{ marginTop: 0 }}>
+          Los avisos llegan a la pantalla del celular aunque la aplicación esté cerrada. Hay que activarlos
+          en cada dispositivo por separado: el celular y la computadora se registran aparte.
+        </p>
+
+        {push === 'sin-soporte' && (
+          <div className="cc-aviso cc-av-oro">
+            Este navegador no admite notificaciones. En iPhone hay que instalar la aplicación desde Safari,
+            con Compartir → Añadir a pantalla de inicio, y activarlas desde ahí.
+          </div>
+        )}
+        {push === 'bloqueado' && (
+          <div className="cc-aviso cc-av-mal">
+            Las notificaciones están bloqueadas para este sitio. Hay que habilitarlas en los ajustes del
+            navegador y volver a intentarlo.
+          </div>
+        )}
+        {push === 'activo' && (
+          <div className="cc-aviso cc-av-ok">Activadas en este dispositivo.</div>
+        )}
+
+        {push === 'inactivo' && (
+          <button className="cc-btn cc-btn-p" disabled={trabajando || !parametros?.vapid_public_key}
+            onClick={async () => {
+              setError(null); setExito(null); setTrabajando(true)
+              try {
+                await activarPush(perfil!.id, parametros!.vapid_public_key!)
+                setPush('activo')
+                setExito('Notificaciones activadas en este dispositivo.')
+              } catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
+            }}>
+            Activar notificaciones aquí
+          </button>
+        )}
+
+        {push === 'activo' && (
+          <button className="cc-btn" disabled={trabajando}
+            onClick={async () => {
+              setTrabajando(true)
+              try { await desactivarPush(perfil!.id); setPush('inactivo') }
+              catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
+            }}>
+            Desactivar en este dispositivo
+          </button>
+        )}
+
+        {!parametros?.vapid_public_key && (
+          <p className="cc-tenue" style={{ fontSize: 13 }}>
+            Falta configurar la clave del servidor de notificaciones. Avisa al administrador del sistema.
+          </p>
+        )}
+      </div>
 
       <div className="cc-card" style={{ maxWidth: 560 }}>
         <h2>Mi QR de cobro</h2>

@@ -6,6 +6,7 @@
  * la base al momento del desembolso; aquí solo se envían.
  */
 import crypto from 'node:crypto'
+import webpush from 'web-push'
 import { createClient } from '@supabase/supabase-js'
 import type { Config } from '@netlify/functions'
 
@@ -16,6 +17,14 @@ const supabase = createClient(
 )
 
 const URL_PUBLICA = process.env.URL_PUBLICA ?? ''
+
+if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT ?? `mailto:${process.env.CORREO_REMITENTE ?? 'cajachica@ucb.edu.bo'}`,
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY
+  )
+}
 
 /** Texto por plantilla. Las de WhatsApp deben estar aprobadas en Meta con el mismo nombre. */
 const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
@@ -42,6 +51,40 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
   plazo_vencido: (v) => ({
     asunto: 'Plazo de rendición vencido',
     cuerpo: `El plazo para rendir su vale de caja chica venció el ${fecha(v.limite)}.\nHasta regularizarlo no podrá solicitar vales nuevos.`
+  }),
+  entregar_fisico: (v) => ({
+    asunto: 'Falta entregar la documentación en papel',
+    cuerpo: `Ya registraste la rendición en el sistema. Falta entregar al administrador de caja el vale y las facturas originales, con la firma y el sello de tu coordinador al reverso.\nLa solicitud no se cierra hasta ese cotejo.`
+  }),
+  fisico_por_recibir: (v) => ({
+    asunto: 'Documentación física por recibir',
+    cuerpo: `Hay una rendición esperando el cotejo del papel por ${bs(v.monto)}.\nRevísala en ${URL_PUBLICA}/caja/validar-devoluciones`
+  }),
+  documentacion_observada: (v) => ({
+    asunto: 'Tu documentación fue observada',
+    cuerpo: `El administrador de caja observó la documentación de tu rendición.\nMotivo: ${v.observacion ?? 'sin detalle'}\nHay que subsanarlo para poder cerrar la solicitud.`
+  }),
+  reposicion_por_procesar: (v) => ({
+    asunto: 'Reposición de caja chica por procesar',
+    cuerpo: `Hay un informe aprobado por el DAF esperando la transferencia de ${bs(v.monto)}.\nProcésala en ${URL_PUBLICA}/reposiciones`
+  }),
+  reposicion_hecha: (v) => ({
+    asunto: 'Reposición acreditada',
+    cuerpo: `Contabilidad transfirió la reposición de ${bs(v.monto)}. El saldo de caja ya está disponible.`
+  }),
+  aval_registrado: (v) => ({
+    asunto: 'Tu coordinador emitió su dictamen',
+    cuerpo: v.avalada
+      ? 'Tu coordinador avaló la solicitud. Ya pasó al DAF para su autorización.'
+      : `Tu coordinador no avaló la solicitud, pero igual pasó al DAF.\nObservación: ${v.observacion ?? 'sin detalle'}`
+  }),
+  solicitud_por_avalar: (v) => ({
+    asunto: 'Una solicitud de tu oficina espera tu aval',
+    cuerpo: `${v.descripcion ?? ''}\nMonto: ${bs(v.monto)}\n\n¿La avalas?`
+  }),
+  solicitud_avalada: (v) => ({
+    asunto: 'Solicitud avalada, pendiente de autorización',
+    cuerpo: `${v.descripcion ?? ''}\nMonto: ${bs(v.monto)}\nAval del coordinador: ${v.avalada ? 'favorable' : 'desfavorable'}${v.observacion ? ` — ${v.observacion}` : ''}`
   }),
   devolucion_validada: (v) => ({
     asunto: 'Devolución recibida',
@@ -84,6 +127,10 @@ export default async () => {
     const errores: string[] = []
 
     try {
+      // El push va siempre que la persona tenga la app instalada, sea cual sea
+      // el canal del aviso: es el más inmediato y el que menos cuesta.
+      await enviarPush(aviso, destinatario, asunto, cuerpo)
+
       if (aviso.canal !== 'correo' && destinatario.telefono && destinatario.whatsapp_optin) {
         await enviarWhatsApp(aviso, destinatario, cuerpo)
       }
@@ -147,6 +194,53 @@ async function enviarWhatsApp(aviso: any, destinatario: any, cuerpo: string) {
     body: JSON.stringify(payload)
   })
   if (!r.ok) throw new Error(`WhatsApp: ${await r.text()}`)
+}
+
+/**
+ * Push a todos los dispositivos donde la persona instaló la aplicación.
+ *
+ * Los endpoints caducan: cuando el navegador devuelve 404 o 410 la
+ * suscripción ya no sirve y se borra, para no arrastrar basura ni reintentar
+ * eternamente contra un dispositivo que se formateó.
+ */
+async function enviarPush(aviso: any, destinatario: any, titulo: string, cuerpo: string) {
+  if (!process.env.VAPID_PRIVATE_KEY) return
+
+  const { data: dispositivos } = await supabase
+    .from('push_suscripciones')
+    .select('*')
+    .eq('usuario_id', destinatario.id)
+    .eq('activa', true)
+
+  if (!dispositivos?.length) return
+
+  const destino = aviso.recurso_tipo === 'informe'
+    ? `/rendicion-cuentas/${aviso.recurso_id}`
+    : `/solicitudes/${aviso.recurso_id}`
+
+  const carga = JSON.stringify({
+    titulo: `Caja chica — ${titulo}`,
+    cuerpo,
+    url: destino,
+    tag: `${aviso.recurso_tipo}-${aviso.recurso_id}`
+  })
+
+  for (const d of dispositivos) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } },
+        carga
+      )
+      await supabase.from('push_suscripciones')
+        .update({ ultimo_uso: new Date().toISOString() }).eq('id', d.id)
+    } catch (e: any) {
+      if (e?.statusCode === 404 || e?.statusCode === 410) {
+        await supabase.from('push_suscripciones').delete().eq('id', d.id)
+      } else {
+        console.error('push fallido', d.endpoint.slice(0, 40), e?.statusCode ?? e?.message)
+      }
+    }
+  }
 }
 
 async function enviarCorreo(para: string, asunto: string, cuerpo: string) {

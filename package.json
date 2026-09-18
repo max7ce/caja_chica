@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",
+    "jsqr": "^1.4.0",
     "lucide-react": "^0.383.0",
+    "pdfjs-dist": "^6.3.289",
     "qrcode.react": "^4.0.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -18,6 +20,8 @@
     "read-excel-file": "^9.3.10",
     "recharts": "^2.12.7",
     "vite-plugin-pwa": "^0.20.5",
+    "web-push": "^3.6.7",
+    "workbox-precaching": "^7.4.1",
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {

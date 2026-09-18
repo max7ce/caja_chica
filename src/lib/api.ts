@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 import type {
-  Categoria, Comprobante, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
+  Categoria, Comprobante, Factura, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
 } from '../types/database'
 
@@ -213,12 +213,37 @@ export async function listarComprobantes(solicitudId: string): Promise<Comproban
 export async function registrarDevolucion(o: {
   solicitudId: string; monto: number; rutaComprobante: string; usuarioId: string; periodoId: string | null
 }) {
+  // Una devolución pendiente por solicitud. Sin esto, quien no ve reflejado
+  // su envío lo manda otra vez y el saldo termina subiendo el doble de lo
+  // que realmente se depositó. La base lo impide además con un índice único.
+  const { data: yaHay } = await supabase
+    .from('movimientos_caja').select('id')
+    .eq('solicitud_id', o.solicitudId)
+    .eq('tipo', 'devolucion')
+    .eq('estado', 'pendiente_validacion')
+    .maybeSingle()
+
+  if (yaHay) {
+    throw new Error('Ya enviaste el comprobante de esta devolución. Está esperando que el administrador de caja lo valide.')
+  }
+
   const { error } = await supabase.from('movimientos_caja').insert({
     tipo: 'devolucion', monto: o.monto, solicitud_id: o.solicitudId, periodo_id: o.periodoId,
     registrado_por_id: o.usuarioId, comprobante_url: o.rutaComprobante,
     descripcion: 'Devolución de diferencia por QR', estado: 'pendiente_validacion'
   })
   if (error) throw error
+}
+
+/** ¿Esta solicitud ya tiene una devolución esperando validación? */
+export async function devolucionEnviada(solicitudId: string): Promise<MovimientoCaja | null> {
+  const { data } = await supabase
+    .from('movimientos_caja').select('*')
+    .eq('solicitud_id', solicitudId)
+    .eq('tipo', 'devolucion')
+    .eq('estado', 'pendiente_validacion')
+    .maybeSingle()
+  return (data as MovimientoCaja) ?? null
 }
 
 export async function listarMovimientos(filtros?: { estado?: string; solicitudId?: string }) {
@@ -300,8 +325,9 @@ export async function crearInforme(o: {
     monto_reposicion: o.montoReposicion,
     fecha_inicio_periodo: fechas.length ? new Date(Math.min(...fechas)).toISOString() : null,
     fecha_fin_periodo: fechas.length ? new Date(Math.max(...fechas)).toISOString() : null,
-    estado: 'pendiente_daf',
-    fecha_envio_daf: new Date().toISOString(),
+    // Nace en borrador: primero hay que cargar las facturas en el sistema
+    // contable y adjuntar su reporte, recién después va al DAF.
+    estado: 'borrador',
     total_desembolsado: totalDesembolsado,
     total_devuelto: totalDevuelto,
     saldo_cuenta: saldo.saldo,
@@ -313,11 +339,44 @@ export async function crearInforme(o: {
     .insert(o.solicitudes.map((s) => ({ informe_id: data.id, solicitud_id: s.id })))
   if (e2) throw e2
 
-  const { data: dafs } = await supabase.from('profiles').select('id').eq('role', 'daf').eq('activo', true)
-  for (const d of dafs ?? []) {
-    await agendarAviso('informe_enviado', 'correo', d.id, data.id, { monto: totalDesembolsado }, 'informe')
-  }
   return data.id as string
+}
+
+/**
+ * Sube el reporte que emite el sistema contable después de cargar las
+ * facturas. Es el respaldo con el que el DAF autoriza la reposición.
+ */
+export async function subirReporteContable(
+  informeId: string, archivo: File, nroReporte: string
+) {
+  const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  const ruta = `informe-${informeId}/reporte-contable-${Date.now()}.${ext}`
+
+  const { error: e1 } = await supabase.storage.from('comprobantes').upload(ruta, archivo)
+  if (e1) throw e1
+
+  const { error: e2 } = await supabase.from('informe_rendicion_cuentas').update({
+    reporte_contable_url: ruta,
+    reporte_contable_nro: nroReporte.trim() || null,
+    reporte_contable_fecha: new Date().toISOString()
+  }).eq('id', informeId)
+  if (e2) throw e2
+}
+
+/** Envía el informe al DAF. La base rechaza el envío sin respaldo contable. */
+export async function enviarInformeAlDaf(informe: InformeRendicion) {
+  const { error } = await supabase.from('informe_rendicion_cuentas').update({
+    estado: 'pendiente_daf',
+    fecha_envio_daf: new Date().toISOString()
+  }).eq('id', informe.id).eq('estado', 'borrador')
+  if (error) throw error
+
+  const { data: dafs } = await supabase
+    .from('profiles').select('id').eq('role', 'daf').eq('activo', true)
+  for (const d of dafs ?? []) {
+    await agendarAviso('informe_enviado', 'correo', d.id, informe.id,
+      { monto: informe.total_desembolsado }, 'informe')
+  }
 }
 
 export async function listarInformes(): Promise<InformeRendicion[]> {
@@ -584,4 +643,118 @@ export async function verificarFisica(
     ...(conforme ? { estado: 'completado' } : {})
   }).eq('id', solicitudId).eq('estado', 'pendiente_verificacion')
   if (error) throw error
+}
+
+/* ------------------------------------------------- notificaciones push */
+
+/** La clave VAPID viene en base64url y el navegador la pide como bytes. */
+function base64UrlABytes(base64: string): ArrayBuffer {
+  const relleno = '='.repeat((4 - (base64.length % 4)) % 4)
+  const normal = (base64 + relleno).replace(/-/g, '+').replace(/_/g, '/')
+  const crudo = atob(normal)
+  const bytes = new Uint8Array(crudo.length)
+  for (let i = 0; i < crudo.length; i++) bytes[i] = crudo.charCodeAt(i)
+  return bytes.buffer
+}
+
+export function pushDisponible(): boolean {
+  return 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
+}
+
+export async function estadoPush(): Promise<'sin-soporte' | 'bloqueado' | 'activo' | 'inactivo'> {
+  if (!pushDisponible()) return 'sin-soporte'
+  if (Notification.permission === 'denied') return 'bloqueado'
+  const reg = await navigator.serviceWorker.getRegistration()
+  const sub = await reg?.pushManager.getSubscription()
+  return sub ? 'activo' : 'inactivo'
+}
+
+/**
+ * Activa las notificaciones en ESTE dispositivo. Cada navegador genera su
+ * propia suscripción: el celular y la computadora se registran por separado
+ * y ambos reciben.
+ */
+export async function activarPush(usuarioId: string, clavePublica: string) {
+  if (!pushDisponible()) throw new Error('Este navegador no admite notificaciones push')
+
+  const permiso = await Notification.requestPermission()
+  if (permiso !== 'granted') {
+    throw new Error('No se concedió el permiso. Se puede volver a habilitar desde los ajustes del navegador.')
+  }
+
+  const reg = await navigator.serviceWorker.ready
+  const existente = await reg.pushManager.getSubscription()
+  const sub = existente ?? await reg.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: base64UrlABytes(clavePublica)
+  })
+
+  const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
+  const { error } = await supabase.from('push_suscripciones').upsert({
+    usuario_id: usuarioId,
+    endpoint: json.endpoint,
+    p256dh: json.keys.p256dh,
+    auth: json.keys.auth,
+    user_agent: navigator.userAgent.slice(0, 200),
+    activa: true
+  }, { onConflict: 'endpoint' })
+  if (error) throw error
+}
+
+export async function desactivarPush(usuarioId: string) {
+  const reg = await navigator.serviceWorker.getRegistration()
+  const sub = await reg?.pushManager.getSubscription()
+  if (sub) {
+    await supabase.from('push_suscripciones').delete()
+      .eq('endpoint', sub.endpoint).eq('usuario_id', usuarioId)
+    await sub.unsubscribe()
+  }
+}
+
+/* -------------------------------------------------------- facturas */
+
+export async function listarFacturas(solicitudId: string): Promise<Factura[]> {
+  const { data, error } = await supabase
+    .from('facturas').select('*').eq('solicitud_id', solicitudId).order('created_at')
+  if (error) throw error
+  return (data ?? []) as Factura[]
+}
+
+export async function guardarFactura(f: Partial<Factura> & { solicitud_id: string; monto: number }) {
+  const { error } = await supabase.from('facturas').insert(f)
+  if (error) throw error
+}
+
+export async function borrarFactura(id: string) {
+  const { error } = await supabase.from('facturas').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** Todas las facturas de las solicitudes incluidas en un informe. */
+export async function facturasDeInforme(solicitudIds: string[]): Promise<Factura[]> {
+  if (!solicitudIds.length) return []
+  const { data, error } = await supabase
+    .from('facturas').select('*').in('solicitud_id', solicitudIds).order('fecha_emision')
+  if (error) throw error
+  return (data ?? []) as Factura[]
+}
+
+/**
+ * Adjunta el PDF de la factura y devuelve el id del comprobante, para poder
+ * enlazarlo con los datos fiscales extraídos.
+ */
+export async function adjuntarFactura(archivo: File, solicitudId: string, usuarioId: string) {
+  const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  const ruta = `solicitud-${solicitudId}/factura-${Date.now()}.${ext}`
+
+  const { error: e1 } = await supabase.storage.from('comprobantes').upload(ruta, archivo)
+  if (e1) throw e1
+
+  const { data, error: e2 } = await supabase.from('comprobantes').insert({
+    solicitud_id: solicitudId, archivo_url: ruta, tipo: 'compra',
+    descripcion: 'Factura en PDF', subido_por_id: usuarioId
+  }).select('id').single()
+  if (e2) throw e2
+
+  return { id: data.id as string, ruta }
 }
