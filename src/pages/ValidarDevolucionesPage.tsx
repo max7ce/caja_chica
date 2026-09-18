@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  listarComprobantes, listarMovimientos, listarSolicitudes, urlPublica,
+  listarComprobantes, listarFacturas, listarMovimientos, listarSolicitudes, urlPublica,
   validarDevolucion, verificarFisica
 } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Vacio } from '../components/Ui'
-import type { Comprobante, MovimientoCaja, Solicitud } from '../types/database'
+import type { Comprobante, Factura, MovimientoCaja, Solicitud } from '../types/database'
 import { Persona } from '../components/Ui'
 import { bs as formatoBs } from '../lib/formato'
 
@@ -16,6 +16,7 @@ export function ValidarDevolucionesPage() {
   const [lista, setLista] = useState<MovimientoCaja[]>([])
   const [porVerificar, setPorVerificar] = useState<Solicitud[]>([])
   const [adjuntos, setAdjuntos] = useState<Record<string, Comprobante[]>>({})
+  const [facturas, setFacturas] = useState<Record<string, Factura[]>>({})
   const [observaciones, setObservaciones] = useState<Record<string, string>>({})
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -32,8 +33,13 @@ export function ValidarDevolucionesPage() {
 
       // Se precargan los comprobantes para poder cotejarlos sin abrir cada solicitud
       const mapa: Record<string, Comprobante[]> = {}
-      for (const sol of pendientes) mapa[sol.id] = await listarComprobantes(sol.id)
+      const mapaF: Record<string, Factura[]> = {}
+      for (const sol of pendientes) {
+        mapa[sol.id] = await listarComprobantes(sol.id)
+        mapaF[sol.id] = await listarFacturas(sol.id)
+      }
       setAdjuntos(mapa)
+      setFacturas(mapaF)
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
   }, [])
   useEffect(() => { cargar() }, [cargar])
@@ -101,8 +107,9 @@ export function ValidarDevolucionesPage() {
         <h2>Documentación física por recibir</h2>
         <p className="cc-tenue" style={{ marginTop: 0 }}>
           El solicitante ya rindió en el sistema. Falta que entregue el vale y las facturas con la firma
-          y el sello de su coordinador al reverso, y que coincidan con lo cargado. Hasta entonces la
-          solicitud no se cierra.
+          y el sello de su coordinador al reverso, y que coincidan con lo cargado. Este es el momento de
+          revisar también los datos fiscales: lo que se verifique acá es lo que después va al informe de
+          rendición sin volver a tipearse.
         </p>
         {!porVerificar.length ? (
           <Vacio texto={lista.length
@@ -114,7 +121,7 @@ export function ValidarDevolucionesPage() {
               <thead>
                 <tr>
                   <th>Nº</th><th>Solicitante</th><th>Detalle</th><th className="num">Gastado</th>
-                  <th>Cargado en el sistema</th><th>Observación</th><th />
+                  <th>Facturas</th><th>Adjuntos</th><th>Observación</th><th />
                 </tr>
               </thead>
               <tbody>
@@ -131,6 +138,27 @@ export function ValidarDevolucionesPage() {
                       )}
                     </td>
                     <td className="num">{formatoBs(sol.monto_real)}</td>
+                    <td>
+                      {(() => {
+                        const fs = facturas[sol.id] ?? []
+                        const totalF = fs.reduce((a, f) => a + Number(f.monto), 0)
+                        const gastado = Number(sol.monto_real ?? 0)
+                        if (!fs.length) {
+                          return <span className="cc-chip cc-mal">sin facturas</span>
+                        }
+                        const difiere = Math.abs(totalF - gastado) > 0.009
+                        return (
+                          <>
+                            <div>{fs.length} · {formatoBs(totalF)}</div>
+                            {difiere && (
+                              <div className="cc-chip cc-espera" style={{ marginTop: 4 }}>
+                                no coincide con lo gastado
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
+                    </td>
                     <td>
                       {(adjuntos[sol.id] ?? []).length === 0
                         ? <span className="cc-tenue">sin adjuntos</span>

@@ -129,12 +129,14 @@ export function RendicionDetailPage() {
         <div className="cc-card">
           <h2>Antes de enviarlo al DAF</h2>
           <p className="cc-tenue" style={{ marginTop: 0 }}>
-            Las facturas de este informe se cargan en el sistema contable de la universidad con tu rol
-            especial en ese sistema. El reporte que emite ahí es el respaldo con el que el DAF autoriza
-            la reposición, así que va adjunto al informe.
+            Las facturas ya están en el sistema: las cargaron los solicitantes al rendir y vos las
+            verificaste al recibir los papeles. Lo que falta es llevarlas al sistema contable de la
+            universidad, con tu rol especial en ese sistema, y adjuntar acá el reporte que emite. Ese
+            reporte es el respaldo con el que el DAF autoriza la reposición.
           </p>
 
-          <p><strong>1.</strong> Descarga la planilla con los datos fiscales de las facturas de este informe.</p>
+          <p><strong>1.</strong> Descarga la planilla con los datos fiscales ya cargados. No hay que
+            volver a tipear nada.</p>
 
           {(() => {
             const sinFacturas = solicitudes.filter(
@@ -144,8 +146,9 @@ export function RendicionDetailPage() {
               return (
                 <div className="cc-aviso cc-av-mal">
                   Ninguna de las {solicitudes.length} solicitudes de este informe tiene facturas cargadas,
-                  así que la planilla saldría vacía. Abre cada solicitud y carga sus facturas en la sección
-                  "Facturas de esta compra": puedes hacerlo tú, aunque la solicitud ya esté cerrada.
+                  así que la planilla saldría vacía. Esto no debería pasar si se cargaron al rendir: entra a
+                  cada solicitud y cárgalas en "Facturas de esta compra". Podés hacerlo vos aunque ya
+                  estén cerradas.
                 </div>
               )
             }
@@ -178,7 +181,8 @@ export function RendicionDetailPage() {
             Datos fiscales para el sistema contable
           </button>
 
-          <p><strong>2.</strong> Cárgalas en el sistema contable y sube el reporte que te devuelve.</p>
+          <p><strong>2.</strong> Con esa planilla, cárgalas en el <strong>sistema contable de la
+            universidad</strong> y sube acá el reporte que te devuelve.</p>
           <div className="cc-dos">
             <div className="cc-campo">
               <label>Nº de reporte o comprobante contable</label>
