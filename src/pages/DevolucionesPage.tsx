@@ -57,7 +57,24 @@ export function DevolucionesPage() {
 
   return (
     <>
-      <Cabecera titulo={`Devolver ${bs(diferencia)}`} bajada="Transfiere por QR a la cuenta de caja chica y sube el comprobante del depósito." />
+      <Cabecera
+        titulo={`Devolver ${bs(diferencia)}`}
+        bajada="Transfiere ese monto a la cuenta de caja chica y sube el comprobante del depósito. La solicitud se cierra cuando el administrador valide el depósito y reciba tus papeles."
+      />
+
+      <div className="cc-card" style={{ maxWidth: 520 }}>
+        <h2>De dónde sale este monto</h2>
+        <table className="cc-tabla">
+          <tbody>
+            <tr><td>Recibiste</td><td className="num">{bs(solicitud.monto_solicitado)}</td></tr>
+            <tr><td>Declaraste haber gastado</td><td className="num">{bs(solicitud.monto_real)}</td></tr>
+            <tr>
+              <td><strong>Diferencia a devolver</strong></td>
+              <td className="num"><strong>{bs(diferencia)}</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
       <AvisoError mensaje={error} />
       <Exito mensaje={exito} />
       <div className="cc-card">

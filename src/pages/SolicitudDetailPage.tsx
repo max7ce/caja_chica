@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
-  obtenerSolicitud, reportarGasto, subirComprobante, urlPublica, validarDevolucion, verificarFisica
+  listarFacturas, obtenerSolicitud, reportarGasto, subirComprobante, urlPublica,
+  validarDevolucion, verificarFisica
 } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora, horasRestantes } from '../lib/formato'
@@ -26,6 +27,7 @@ export function SolicitudDetailPage() {
   const [motivo, setMotivo] = useState('')
   const [observacion, setObservacion] = useState('')
   const [obsFisica, setObsFisica] = useState('')
+  const [totalFacturado, setTotalFacturado] = useState(0)
   const [montoReal, setMontoReal] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -37,6 +39,8 @@ export function SolicitudDetailPage() {
         obtenerSolicitud(id), listarComprobantes(id), listarMovimientos({ solicitudId: id })
       ])
       setSolicitud(s); setComprobantes(c); setMovimientos(m)
+      const fs = await listarFacturas(id)
+      setTotalFacturado(fs.reduce((a, f) => a + Number(f.monto), 0))
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
   }, [id])
 
@@ -206,24 +210,90 @@ export function SolicitudDetailPage() {
         />
       )}
 
-      {puedeRendir && (
-        <div className="cc-card" style={{ maxWidth: 560 }}>
-          <h2>Rendir el gasto</h2>
-          <div className="cc-campo" style={{ maxWidth: 240 }}>
-            <label>¿Cuánto gastaste realmente?</label>
-            <input type="number" step="0.01" min="0" value={montoReal} onChange={(e) => setMontoReal(e.target.value)} />
+      {puedeRendir && (() => {
+        const recibido = Number(solicitud.monto_solicitado)
+        const gastado = Number(montoReal || 0)
+        const sobra = montoReal ? recibido - gastado : null
+        const excede = gastado > recibido
+
+        return (
+          <div className="cc-card" style={{ maxWidth: 620 }}>
+            <h2>Rendir el gasto</h2>
+
+            <table className="cc-tabla" style={{ marginBottom: 18 }}>
+              <tbody>
+                <tr>
+                  <td>Recibiste</td>
+                  <td className="num">{bs(recibido)}</td>
+                </tr>
+                <tr>
+                  <td>
+                    Suma de las facturas cargadas
+                    {totalFacturado === 0 && (
+                      <div className="cc-tenue" style={{ fontSize: '.85rem' }}>
+                        Todavía no cargaste ninguna factura arriba.
+                      </div>
+                    )}
+                  </td>
+                  <td className="num">
+                    {bs(totalFacturado)}
+                    {totalFacturado > 0 && String(totalFacturado) !== montoReal && (
+                      <div>
+                        <button className="cc-btn cc-btn-x" style={{ marginTop: 6 }}
+                          onClick={() => setMontoReal(String(totalFacturado))}>
+                          Usar este monto
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <div className="cc-campo" style={{ maxWidth: 260 }}>
+              <label>¿Cuánto gastaste realmente?</label>
+              <input type="number" step="0.01" min="0" value={montoReal}
+                onChange={(e) => setMontoReal(e.target.value)} />
+            </div>
+
+            {montoReal && !excede && (
+              <div className={`cc-aviso ${sobra! > 0 ? 'cc-av-oro' : 'cc-av-ok'}`}>
+                {sobra! > 0
+                  ? `Te sobran ${bs(sobra!)}. Al guardar vas a pasar a la pantalla de devolución para depositarlos.`
+                  : 'Gastaste todo lo recibido. No hay diferencia que devolver.'}
+              </div>
+            )}
+
+            {excede && (
+              <div className="cc-aviso cc-av-mal">
+                Estás declarando más de lo que recibiste. La caja no reembolsa diferencias por esta vía:
+                conversa con tu coordinador y con el DAF antes de guardar.
+              </div>
+            )}
+
+            <SubirArchivo etiqueta="Comprobante de compra" onSeleccion={setArchivo} />
+
+            <button className="cc-btn cc-btn-p" disabled={trabajando || !montoReal || !archivo}
+              onClick={() => accion(async () => {
+                await subirComprobante({
+                  archivo: archivo!, solicitudId: solicitud.id, tipo: 'compra', usuarioId: perfil!.id
+                })
+                const hay = await reportarGasto(solicitud, Number(montoReal))
+                if (hay) navegar(`/devoluciones/${solicitud.id}`)
+              }, 'Gasto reportado.')}>
+              Guardar rendición
+            </button>
+
+            {(!montoReal || !archivo) && (
+              <p className="cc-tenue" style={{ fontSize: 13 }}>
+                Falta {!montoReal ? 'escribir cuánto gastaste' : ''}
+                {!montoReal && !archivo ? ' y ' : ''}
+                {!archivo ? 'adjuntar el comprobante de compra' : ''}.
+              </p>
+            )}
           </div>
-          <SubirArchivo etiqueta="Comprobante de compra" onSeleccion={setArchivo} />
-          <button className="cc-btn cc-btn-p" disabled={trabajando || !montoReal || !archivo}
-            onClick={() => accion(async () => {
-              await subirComprobante({ archivo: archivo!, solicitudId: solicitud.id, tipo: 'compra', usuarioId: perfil!.id })
-              const hay = await reportarGasto(solicitud, Number(montoReal))
-              if (hay) navegar(`/devoluciones/${solicitud.id}`)
-            }, 'Gasto reportado.')}>
-            Guardar rendición
-          </button>
-        </div>
-      )}
+        )
+      })()}
 
       {solicitud.estado === 'pendiente_devolucion' && esPropia && (
         devolucionPendiente ? (
