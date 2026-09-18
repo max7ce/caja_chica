@@ -208,10 +208,13 @@ export function SolicitudDetailPage() {
       {['desembolsado', 'pendiente_devolucion', 'pendiente_verificacion', 'completado'].includes(solicitud.estado) && (
         <FacturasDeSolicitud
           solicitudId={solicitud.id}
-          editable={esPropia && (
-            ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado)
-            || (solicitud.estado === 'pendiente_verificacion' && solicitud.conforme_fisica === false)
-          )}
+          editable={
+            ['admin_caja', 'super_admin'].includes(rol)
+            || (esPropia && (
+              ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado)
+              || (solicitud.estado === 'pendiente_verificacion' && solicitud.conforme_fisica === false)
+            ))
+          }
         />
       )}
 

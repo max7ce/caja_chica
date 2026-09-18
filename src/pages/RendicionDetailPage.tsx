@@ -134,9 +134,43 @@ export function RendicionDetailPage() {
             la reposición, así que va adjunto al informe.
           </p>
 
-          <p><strong>1.</strong> Descarga la planilla con los datos fiscales de las {facturas.length} factura(s)
-            de este informe.</p>
-          <button className="cc-btn" style={{ marginBottom: 18 }}
+          <p><strong>1.</strong> Descarga la planilla con los datos fiscales de las facturas de este informe.</p>
+
+          {(() => {
+            const sinFacturas = solicitudes.filter(
+              (s) => !facturas.some((f) => f.solicitud_id === s.id)
+            )
+            if (!facturas.length) {
+              return (
+                <div className="cc-aviso cc-av-mal">
+                  Ninguna de las {solicitudes.length} solicitudes de este informe tiene facturas cargadas,
+                  así que la planilla saldría vacía. Abre cada solicitud y carga sus facturas en la sección
+                  "Facturas de esta compra": puedes hacerlo tú, aunque la solicitud ya esté cerrada.
+                </div>
+              )
+            }
+            if (sinFacturas.length) {
+              return (
+                <div className="cc-aviso cc-av-oro">
+                  Hay {facturas.length} factura(s) cargadas, pero {sinFacturas.length} solicitud(es) no
+                  tienen ninguna:{' '}
+                  {sinFacturas.map((s, i) => (
+                    <span key={s.id}>
+                      {i > 0 && ', '}
+                      <Link to={`/solicitudes/${s.id}`}>{s.descripcion}</Link>
+                    </span>
+                  ))}
+                  . Si esas compras tuvieron factura, cárgalas antes de exportar.
+                </div>
+              )
+            }
+            return (
+              <div className="cc-aviso cc-av-ok">
+                {facturas.length} factura(s) cargadas, de las {solicitudes.length} solicitudes del informe.
+              </div>
+            )
+          })()}
+          <button className="cc-btn" style={{ marginBottom: 18 }} disabled={!facturas.length}
             onClick={() => accion(
               () => exportarDatosFiscales(facturas, solicitudes, fecha(informe!.fecha_creacion).replace(/\//g, '-')),
               'Planilla descargada.'
