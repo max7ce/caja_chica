@@ -758,3 +758,18 @@ export async function adjuntarFactura(archivo: File, solicitudId: string, usuari
 
   return { id: data.id as string, ruta }
 }
+
+/**
+ * Respuesta del solicitante a una observación del administrador de caja.
+ *
+ * Deja el cotejo en blanco para que el administrador vuelva a revisarlo. No
+ * puede marcarse conforme a sí mismo: eso lo impide un trigger en la base.
+ */
+export async function responderObservacion(solicitudId: string, respuesta: string) {
+  const { error } = await supabase.from('solicitudes').update({
+    respuesta_solicitante: respuesta.trim(),
+    fecha_respuesta_solicitante: new Date().toISOString(),
+    conforme_fisica: null
+  }).eq('id', solicitudId).eq('estado', 'pendiente_verificacion')
+  if (error) throw error
+}

@@ -138,11 +138,16 @@ export function MiPerfilPage() {
         </p>
 
         {perfil?.qr_url && (
-          <img
-            src={urlQR(perfil.qr_url)!}
-            alt="Mi QR de cobro"
-            style={{ width: 190, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 14 }}
-          />
+          <>
+            <img
+              src={urlQR(perfil.qr_url)!}
+              alt="Mi QR de cobro"
+              style={{ width: 190, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 6 }}
+            />
+            <p className="cc-mono" style={{ marginTop: 0, marginBottom: 14 }}>
+              archivo actual: {perfil.qr_url.split('/').pop()}
+            </p>
+          </>
         )}
 
         <div className="cc-campo">
@@ -158,7 +163,7 @@ export function MiPerfilPage() {
               await actualizarPerfil(perfil!.id, { qr_url: ruta })
               await recargar()
               setQr(null)
-              setExito('QR de cobro guardado.')
+              setExito('QR de cobro actualizado. Si sigues viendo el anterior, recarga la página.')
             } catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
           }}>
           Guardar QR

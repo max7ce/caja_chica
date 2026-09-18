@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
-  listarFacturas, obtenerSolicitud, reportarGasto, subirComprobante, urlPublica,
+  listarFacturas, obtenerSolicitud, reportarGasto, responderObservacion, subirComprobante, urlPublica,
   validarDevolucion, verificarFisica
 } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
@@ -28,6 +28,8 @@ export function SolicitudDetailPage() {
   const [observacion, setObservacion] = useState('')
   const [obsFisica, setObsFisica] = useState('')
   const [totalFacturado, setTotalFacturado] = useState(0)
+  const [respuesta, setRespuesta] = useState('')
+  const [extra, setExtra] = useState<File | null>(null)
   const [montoReal, setMontoReal] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [trabajando, setTrabajando] = useState(false)
@@ -206,7 +208,10 @@ export function SolicitudDetailPage() {
       {['desembolsado', 'pendiente_devolucion', 'pendiente_verificacion', 'completado'].includes(solicitud.estado) && (
         <FacturasDeSolicitud
           solicitudId={solicitud.id}
-          editable={esPropia && ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado)}
+          editable={esPropia && (
+            ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado)
+            || (solicitud.estado === 'pendiente_verificacion' && solicitud.conforme_fisica === false)
+          )}
         />
       )}
 
@@ -311,11 +316,49 @@ export function SolicitudDetailPage() {
         )
       )}
 
-      {solicitud.estado === 'pendiente_verificacion' && esPropia && (
-        <div className={`cc-aviso ${solicitud.conforme_fisica === false ? 'cc-av-mal' : 'cc-av-oro'}`}>
-          {solicitud.conforme_fisica === false
-            ? `El administrador observó tu documentación: ${solicitud.observacion_fisica ?? ''}`
+      {solicitud.estado === 'pendiente_verificacion' && esPropia && solicitud.conforme_fisica !== false && (
+        <div className="cc-aviso cc-av-oro">
+          {solicitud.fecha_respuesta_solicitante
+            ? 'Respondiste la observación. El administrador de caja va a revisarlo de nuevo.'
             : 'Ya rendiste en el sistema. Falta entregar en físico el vale y las facturas con la firma y el sello de tu coordinador al reverso.'}
+        </div>
+      )}
+
+      {solicitud.estado === 'pendiente_verificacion' && esPropia && solicitud.conforme_fisica === false && (
+        <div className="cc-card">
+          <h2>Tu rendición fue observada</h2>
+          <div className="cc-aviso cc-av-mal">{solicitud.observacion_fisica}</div>
+
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Corrige lo observado y respondé desde acá. Según lo que falte:
+          </p>
+          <ul style={{ margin: '0 0 16px 18px' }}>
+            <li>Si falta una firma o un papel, entrégalo de nuevo al administrador de caja.</li>
+            <li>Si una factura está mal cargada, corrígela en la sección de arriba.</li>
+            <li>Si falta un comprobante, adjúntalo acá abajo.</li>
+          </ul>
+
+          <SubirArchivo etiqueta="Adjuntar otro comprobante (opcional)" onSeleccion={setExtra} />
+
+          <div className="cc-campo">
+            <label>Tu respuesta</label>
+            <textarea value={respuesta} onChange={(e) => setRespuesta(e.target.value)}
+              placeholder="Ejemplo: ya conseguí la firma del coordinador y dejé la factura en caja esta mañana." />
+          </div>
+
+          <button className="cc-btn cc-btn-p" disabled={trabajando || !respuesta.trim()}
+            onClick={() => accion(async () => {
+              if (extra) {
+                await subirComprobante({
+                  archivo: extra, solicitudId: solicitud.id, tipo: 'compra',
+                  usuarioId: perfil!.id, descripcion: 'Adjunto tras observación'
+                })
+              }
+              await responderObservacion(solicitud.id, respuesta)
+              setRespuesta(''); setExtra(null)
+            }, 'Respuesta enviada. El administrador de caja fue notificado.')}>
+            Enviar respuesta
+          </button>
         </div>
       )}
 
@@ -326,8 +369,16 @@ export function SolicitudDetailPage() {
             Verifica que el vale y las facturas entregadas en papel coincidan con lo cargado, y que lleven
             firma y sello del coordinador al reverso.
           </p>
-          {solicitud.conforme_fisica === false && solicitud.observacion_fisica && (
-            <div className="cc-aviso cc-av-oro">Observación anterior: {solicitud.observacion_fisica}</div>
+          {solicitud.observacion_fisica && (
+            <div className="cc-aviso cc-av-oro">
+              Observación anterior: {solicitud.observacion_fisica}
+            </div>
+          )}
+          {solicitud.respuesta_solicitante && (
+            <div className="cc-aviso cc-av-ok">
+              Respuesta del solicitante ({fechaHora(solicitud.fecha_respuesta_solicitante)}):{' '}
+              {solicitud.respuesta_solicitante}
+            </div>
           )}
           <div className="cc-campo" style={{ maxWidth: 460 }}>
             <label>Observación (obligatoria si no coincide)</label>

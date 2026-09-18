@@ -60,6 +60,10 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
     asunto: 'Documentación física por recibir',
     cuerpo: `Hay una rendición esperando el cotejo del papel por ${bs(v.monto)}.\nRevísala en ${URL_PUBLICA}/caja/validar-devoluciones`
   }),
+  observacion_respondida: (v) => ({
+    asunto: 'Respondieron una observación',
+    cuerpo: `Un solicitante respondió la observación de su rendición.\n${v.respuesta ?? ''}\nVuelve a revisarla en ${URL_PUBLICA}/caja/validar-devoluciones`
+  }),
   documentacion_observada: (v) => ({
     asunto: 'Tu documentación fue observada',
     cuerpo: `El administrador de caja observó la documentación de tu rendición.\nMotivo: ${v.observacion ?? 'sin detalle'}\nHay que subsanarlo para poder cerrar la solicitud.`

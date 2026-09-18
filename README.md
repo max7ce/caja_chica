@@ -272,3 +272,21 @@ Contabilidad ya no carga facturas. Solo procesa la transferencia.
 **El requisito está en la base.** El trigger `exigir_reporte_contable` rechaza el paso de borrador a pendiente_daf sin `reporte_contable_url`. No es solo un botón deshabilitado en la interfaz.
 
 **El aviso al DAF se movió.** Antes se enviaba al crear el informe; ahora al remitirlo. Sin ese cambio el DAF recibiría un aviso por un informe que todavía no puede revisar.
+
+---
+
+## 14. Respuesta a una observación (migración 12)
+
+Cuando el administrador de caja observaba una rendición, el solicitante veía el motivo y nada más: no podía subsanar ni contestar, y la solicitud quedaba trabada sin salida.
+
+Ahora, con la rendición observada, el solicitante puede corregir sus facturas, adjuntar un comprobante más y escribir una respuesta. Al enviarla, el cotejo vuelve a quedar en blanco para que el administrador lo revise de nuevo, y recibe el aviso.
+
+**Lo que no puede hacer es darse por conforme.** El trigger `proteger_observacion` rechaza que el propio solicitante marque su rendición como conforme. Sin esa restricción, alguien con la observación encima podría cerrarla escribiendo una respuesta.
+
+El administrador ve las dos cosas al volver a cotejar: su observación anterior y la respuesta recibida, con su fecha.
+
+## Corrección: el QR de caja se revertía
+
+`guardarParametros` recibía el objeto de parámetros completo tal como estaba al abrir la pantalla. Si alguien subía un QR nuevo y después tocaba "Guardar parámetros", ese botón reescribía la ruta vieja y el QR volvía al anterior, sin ningún error visible.
+
+Ahora el guardado envía solo los campos de ese formulario. Además, las dos pantallas de QR muestran el nombre del archivo vigente, para poder confirmar de un vistazo que efectivamente cambió.

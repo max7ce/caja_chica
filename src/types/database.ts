@@ -90,6 +90,8 @@ export interface Solicitud {
   verificado_por_id: string | null
   conforme_fisica: boolean | null
   observacion_fisica: string | null
+  respuesta_solicitante: string | null
+  fecha_respuesta_solicitante: string | null
   admin_caja_id: string | null
   aprobado_por_id: string | null
   solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null

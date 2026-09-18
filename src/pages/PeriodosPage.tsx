@@ -142,8 +142,13 @@ export function PeriodosPage() {
             Es el que ve el solicitante cuando tiene que devolver una diferencia.
           </p>
           {parametros?.qr_caja_url && (
-            <img src={urlQR(parametros.qr_caja_url)!} alt="QR de caja chica"
-              style={{ width: 170, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 10 }} />
+            <>
+              <img src={urlQR(parametros.qr_caja_url)!} alt="QR de caja chica"
+                style={{ width: 170, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 6 }} />
+              <p className="cc-mono" style={{ marginTop: 0 }}>
+                archivo actual: {parametros.qr_caja_url.split('/').pop()}
+              </p>
+            </>
           )}
           <input type="file" accept="image/*" onChange={(e) => setQrCaja(e.target.files?.[0] ?? null)} />
           {qrCaja && (
@@ -152,9 +157,10 @@ export function PeriodosPage() {
               try {
                 const ruta = await subirQR(qrCaja, perfilId)
                 await guardarParametros({ qr_caja_url: ruta })
+                setForm((f) => ({ ...f, qr_caja_url: ruta }))
                 await recargar()
                 setQrCaja(null)
-                setExito('QR de caja chica guardado.')
+                setExito('QR de caja chica actualizado. Recarga la página si sigues viendo el anterior.')
               } catch (e: any) { setError(e.message) }
             }}>Subir QR de caja</button>
           )}
@@ -163,7 +169,17 @@ export function PeriodosPage() {
         <button className="cc-btn cc-btn-p" onClick={async () => {
           setError(null)
           try {
-            await guardarParametros(form)
+            // Solo los campos de este formulario. Enviar el objeto completo
+            // pisaba el QR recién subido con la ruta que se había cargado al
+            // abrir la pantalla.
+            await guardarParametros({
+              tope_solicitud: form.tope_solicitud,
+              umbral_reposicion: form.umbral_reposicion,
+              monto_reposicion: form.monto_reposicion,
+              plazo_rendicion_horas: form.plazo_rendicion_horas,
+              pausar_fin_semana: form.pausar_fin_semana,
+              bloquear_si_vencida: form.bloquear_si_vencida
+            })
             await recargar()
             setExito('Parámetros actualizados. Aplican a los desembolsos nuevos, no a los plazos ya calculados.')
           } catch (e: any) { setError(e.message) }
