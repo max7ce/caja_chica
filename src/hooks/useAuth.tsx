@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { limpiarCacheUrls } from '../lib/storageUrls'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { misOficinas, obtenerParametros, obtenerPerfil, periodoVigente } from '../lib/api'
@@ -90,7 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) throw error
     },
-    cerrarSesion: async () => { await supabase.auth.signOut(); setPerfil(null) },
+    cerrarSesion: async () => { await supabase.auth.signOut(); limpiarCacheUrls(); setPerfil(null) },
     recargar: async () => cargarContexto(session?.user.id)
   }), [session, perfil, parametros, periodo, oficinasQueCoordino, cargando, errorContexto, cargarContexto])
 

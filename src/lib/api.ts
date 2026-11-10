@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { validarArchivo } from './storageUrls'
 import type {
   Categoria, Comprobante, Factura, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
@@ -184,6 +185,7 @@ export async function subirComprobante(o: {
   archivo: File; solicitudId: string; tipo: TipoComprobante; usuarioId: string; descripcion?: string
 }): Promise<string> {
   const ext = o.archivo.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  validarArchivo('comprobantes', o.archivo)
   const ruta = `solicitud-${o.solicitudId}/${o.tipo}-${Date.now()}.${ext}`
 
   const { error: e1 } = await supabase.storage.from('comprobantes').upload(ruta, o.archivo)
@@ -195,10 +197,6 @@ export async function subirComprobante(o: {
   })
   if (e2) throw e2
   return ruta
-}
-
-export function urlPublica(ruta: string): string {
-  return supabase.storage.from('comprobantes').getPublicUrl(ruta).data.publicUrl
 }
 
 export async function listarComprobantes(solicitudId: string): Promise<Comprobante[]> {
@@ -350,6 +348,7 @@ export async function subirReporteContable(
   informeId: string, archivo: File, nroReporte: string
 ) {
   const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  validarArchivo('comprobantes', archivo)
   const ruta = `informe-${informeId}/reporte-contable-${Date.now()}.${ext}`
 
   const { error: e1 } = await supabase.storage.from('comprobantes').upload(ruta, archivo)
@@ -558,15 +557,11 @@ export async function avalarSolicitud(
  */
 export async function subirQR(archivo: File, usuarioId: string): Promise<string> {
   const ext = archivo.name.split('.').pop()?.toLowerCase() ?? 'png'
+  validarArchivo('qr', archivo)
   const ruta = `${usuarioId}/qr-${Date.now()}.${ext}`
   const { error } = await supabase.storage.from('qr').upload(ruta, archivo, { upsert: true })
   if (error) throw error
   return ruta
-}
-
-export function urlQR(ruta: string | null | undefined): string | null {
-  if (!ruta) return null
-  return supabase.storage.from('qr').getPublicUrl(ruta).data.publicUrl
 }
 
 /* ------------------------------------------- restablecer contraseña */

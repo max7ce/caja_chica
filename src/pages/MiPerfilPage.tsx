@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import {
-  actualizarPerfil, activarPush, desactivarPush, estadoPush, subirQR, urlQR
+  actualizarPerfil, activarPush, desactivarPush, estadoPush, subirQR
 } from '../lib/api'
+import { ImagenFirmada } from '../components/ArchivoFirmado'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
 import { Cabecera, Error as AvisoError, Exito } from '../components/Ui'
@@ -139,8 +140,8 @@ export function MiPerfilPage() {
 
         {perfil?.qr_url && (
           <>
-            <img
-              src={urlQR(perfil.qr_url)!}
+            <ImagenFirmada
+              ruta={perfil.qr_url}
               alt="Mi QR de cobro"
               style={{ width: 190, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 6 }}
             />
