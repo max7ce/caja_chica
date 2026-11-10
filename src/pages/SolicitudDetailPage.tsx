@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
-  listarFacturas, obtenerSolicitud, reportarGasto, responderObservacion, subirComprobante, urlPublica,
+  listarFacturas, obtenerSolicitud, reportarGasto, responderObservacion, subirComprobante,
   validarDevolucion, verificarFisica
 } from '../lib/api'
+import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora, horasRestantes } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Estado, Exito, Reloj } from '../components/Ui'
@@ -134,7 +135,7 @@ export function SolicitudDetailPage() {
           ))}
           {comprobantes.map((c) => (
             <li key={c.id}>
-              <div>Comprobante de {c.tipo} · <a href={urlPublica(c.archivo_url)} target="_blank" rel="noreferrer">abrir</a></div>
+              <div>Comprobante de {c.tipo} · <EnlaceArchivo ruta={c.archivo_url}>abrir</EnlaceArchivo></div>
               <div className="cuando">{fechaHora(c.fecha_subida)}</div>
             </li>
           ))}

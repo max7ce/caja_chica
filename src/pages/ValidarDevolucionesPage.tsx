@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  listarComprobantes, listarFacturas, listarMovimientos, listarSolicitudes, urlPublica,
+  listarComprobantes, listarFacturas, listarMovimientos, listarSolicitudes,
   validarDevolucion, verificarFisica
 } from '../lib/api'
+import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Vacio } from '../components/Ui'
@@ -89,7 +90,7 @@ export function ValidarDevolucionesPage() {
                       : '—'}</td>
                     <td className="num">{bs(m.monto)}</td>
                     <td>{m.comprobante_url
-                      ? <a href={urlPublica(m.comprobante_url)} target="_blank" rel="noreferrer">Abrir</a>
+                      ? <EnlaceArchivo ruta={m.comprobante_url}>Abrir</EnlaceArchivo>
                       : <span className="cc-tenue">Sin adjunto</span>}</td>
                     <td>
                       <button className="cc-btn cc-btn-x cc-btn-ok" disabled={trabajando === m.id} onClick={() => validar(m)}>
@@ -164,9 +165,9 @@ export function ValidarDevolucionesPage() {
                         ? <span className="cc-tenue">sin adjuntos</span>
                         : (adjuntos[sol.id] ?? []).map((c) => (
                             <div key={c.id}>
-                              <a href={urlPublica(c.archivo_url)} target="_blank" rel="noreferrer">
+                              <EnlaceArchivo ruta={c.archivo_url}>
                                 {c.tipo === 'compra' ? 'Factura' : 'Depósito'}
-                              </a>
+                              </EnlaceArchivo>
                             </div>
                           ))}
                     </td>

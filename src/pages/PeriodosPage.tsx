@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
-import { guardarParametros, listarPerfiles, listarPeriodos, rotarPeriodo, subirQR, urlQR } from '../lib/api'
+import { guardarParametros, listarPerfiles, listarPeriodos, rotarPeriodo, subirQR } from '../lib/api'
+import { ImagenFirmada } from '../components/ArchivoFirmado'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Exito, Persona, Vacio } from '../components/Ui'
@@ -143,7 +144,7 @@ export function PeriodosPage() {
           </p>
           {parametros?.qr_caja_url && (
             <>
-              <img src={urlQR(parametros.qr_caja_url)!} alt="QR de caja chica"
+              <ImagenFirmada ruta={parametros.qr_caja_url} alt="QR de caja chica"
                 style={{ width: 170, border: '1px solid var(--borde)', borderRadius: 6, padding: 10, marginBottom: 6 }} />
               <p className="cc-mono" style={{ marginTop: 0 }}>
                 archivo actual: {parametros.qr_caja_url.split('/').pop()}

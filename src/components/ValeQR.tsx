@@ -1,5 +1,5 @@
 import { bs } from '../lib/formato'
-import { urlQR } from '../lib/api'
+import { ImagenFirmada } from './ArchivoFirmado'
 
 export interface DatosVale {
   solicitud_id: string
@@ -22,13 +22,11 @@ export function ValeQR({
   nota?: string
   faltaQR?: string
 }) {
-  const url = urlQR(qrRuta)
-
   return (
     <div className="cc-fila">
-      {url ? (
+      {qrRuta ? (
         <div className="cc-qr">
-          <img src={url} alt="QR de cobro" style={{ width: 210, height: 'auto', display: 'block' }} />
+          <ImagenFirmada ruta={qrRuta} alt="QR de cobro" style={{ width: 210, height: 'auto', display: 'block' }} />
         </div>
       ) : (
         <div className="cc-qr" style={{ width: 240, textAlign: 'center', padding: 28 }}>

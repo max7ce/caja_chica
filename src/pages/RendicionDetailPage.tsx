@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   enviarInformeAlDaf, facturasDeInforme, listarComprobantes, obtenerInforme,
-  registrarReposicion, resolverInforme, subirReporteContable, urlPublica
+  registrarReposicion, resolverInforme, subirReporteContable
 } from '../lib/api'
+import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
 import { ValeQR } from '../components/ValeQR'
 import { useAuth } from '../hooks/useAuth'
@@ -117,9 +118,9 @@ export function RendicionDetailPage() {
         <ul style={{ margin: 0, paddingLeft: 18 }}>
           {adjuntos.map((c) => (
             <li key={c.id}>
-              <a href={urlPublica(c.archivo_url)} target="_blank" rel="noreferrer">
+              <EnlaceArchivo ruta={c.archivo_url}>
                 {c.tipo === 'compra' ? 'Compra' : 'Devolución'} · {fecha(c.fecha_subida)}
-              </a>
+              </EnlaceArchivo>
             </li>
           ))}
         </ul>
@@ -205,7 +206,7 @@ export function RendicionDetailPage() {
           {informe.reporte_contable_url && (
             <div className="cc-aviso cc-av-ok" style={{ marginTop: 18 }}>
               Reporte adjunto{informe.reporte_contable_nro && ` — Nº ${informe.reporte_contable_nro}`} ·{' '}
-              <a href={urlPublica(informe.reporte_contable_url)} target="_blank" rel="noreferrer">abrir</a>
+              <EnlaceArchivo ruta={informe.reporte_contable_url}>abrir</EnlaceArchivo>
             </div>
           )}
 
@@ -228,9 +229,9 @@ export function RendicionDetailPage() {
           <p style={{ marginTop: 0 }}>
             Las facturas fueron cargadas en el sistema contable
             {informe.reporte_contable_nro && ` bajo el Nº ${informe.reporte_contable_nro}`}.{' '}
-            <a href={urlPublica(informe.reporte_contable_url)} target="_blank" rel="noreferrer">
+            <EnlaceArchivo ruta={informe.reporte_contable_url}>
               Ver el reporte
-            </a>
+            </EnlaceArchivo>
           </p>
         </div>
       )}
