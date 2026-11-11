@@ -24,3 +24,12 @@ export function iniciales(nombre: string | null | undefined): string {
   if (!nombre) return '··'
   return nombre.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
 }
+
+/** Nombre legible de un adjunto, según su tipo y cómo se subió. */
+export function etiquetaComprobante(c: { tipo: string; descripcion: string | null }): string {
+  if (c.tipo === 'cotizacion') return 'Cotización o respaldo'
+  if (c.tipo === 'devolucion') return 'Comprobante de devolución'
+  if (c.descripcion === 'Factura en PDF') return 'Factura (PDF)'
+  if (c.descripcion === 'Adjunto tras observación') return 'Comprobante adicional'
+  return 'Comprobante de compra'
+}

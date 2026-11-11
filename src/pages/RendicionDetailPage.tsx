@@ -8,7 +8,7 @@ import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
 import { ValeQR } from '../components/ValeQR'
 import { useAuth } from '../hooks/useAuth'
-import { bs, fecha } from '../lib/formato'
+import { bs, etiquetaComprobante, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
 import type { Comprobante, Factura, InformeRendicion, Profile, Solicitud } from '../types/database'
 
@@ -32,7 +32,7 @@ export function RendicionDetailPage() {
       const { informe, solicitudes, admin } = await obtenerInforme(id!)
       setInforme(informe); setSolicitudes(solicitudes); setAdmin(admin)
       const listas = await Promise.all(solicitudes.map((s) => listarComprobantes(s.id)))
-      setAdjuntos(listas.flat())
+      setAdjuntos(listas.flat().filter((c) => c.tipo !== 'cotizacion'))
       setFacturas(await facturasDeInforme(solicitudes.map((s) => s.id)))
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
   }, [id])
@@ -119,7 +119,7 @@ export function RendicionDetailPage() {
           {adjuntos.map((c) => (
             <li key={c.id}>
               <EnlaceArchivo ruta={c.archivo_url}>
-                {c.tipo === 'compra' ? 'Compra' : 'Devolución'} · {fecha(c.fecha_subida)}
+                {etiquetaComprobante(c)} · {fecha(c.fecha_subida)}
               </EnlaceArchivo>
             </li>
           ))}

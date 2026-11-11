@@ -6,7 +6,7 @@ import {
 } from '../lib/api'
 import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { useAuth } from '../hooks/useAuth'
-import { bs, fechaHora } from '../lib/formato'
+import { bs, etiquetaComprobante, fechaHora } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Vacio } from '../components/Ui'
 import type { Comprobante, Factura, MovimientoCaja, Solicitud } from '../types/database'
 import { Persona } from '../components/Ui'
@@ -166,7 +166,7 @@ export function ValidarDevolucionesPage() {
                         : (adjuntos[sol.id] ?? []).map((c) => (
                             <div key={c.id}>
                               <EnlaceArchivo ruta={c.archivo_url}>
-                                {c.tipo === 'compra' ? 'Factura' : 'Depósito'}
+                                {etiquetaComprobante(c)}
                               </EnlaceArchivo>
                             </div>
                           ))}
