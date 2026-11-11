@@ -28,6 +28,8 @@ export function SolicitudDetailPage() {
   const [motivo, setMotivo] = useState('')
   const [observacion, setObservacion] = useState('')
   const [obsFisica, setObsFisica] = useState('')
+  const [recibiOriginales, setRecibiOriginales] = useState(false)
+  const [firmaVerificada, setFirmaVerificada] = useState(false)
   const [totalFacturado, setTotalFacturado] = useState(0)
   const [cantidadFacturas, setCantidadFacturas] = useState(0)
   const montoEditado = useRef(false)
@@ -117,6 +119,9 @@ export function SolicitudDetailPage() {
             <tr><td>Vence</td><td className="num">{fechaHora(solicitud.limite_tiempo_devolucion)}</td></tr>
             {solicitud.fecha_recepcion_fisica && (
               <tr><td>Físico recibido</td><td className="num">{fechaHora(solicitud.fecha_recepcion_fisica)}</td></tr>
+            )}
+            {solicitud.firma_superior && (
+              <tr><td>Firma del superior</td><td className="num">verificada</td></tr>
             )}
             {solicitud.origen_decision && (
               <tr><td>Decisión tomada desde</td><td className="num">{solicitud.origen_decision}</td></tr>
@@ -399,8 +404,9 @@ export function SolicitudDetailPage() {
         <div className="cc-card">
           <h2>Cotejo de la documentación física</h2>
           <p className="cc-tenue" style={{ marginTop: 0 }}>
-            Verifica que el vale y las facturas entregadas en papel coincidan con lo cargado, y que lleven
-            firma y sello del coordinador al reverso.
+            La rendición solo se da por válida con los documentos físicos en mano: el vale y las facturas
+            originales, iguales a lo cargado, con la firma de{' '}
+            <strong>{solicitud.coordinador?.full_name ?? 'su superior inmediato'}</strong> al reverso.
           </p>
           {solicitud.observacion_fisica && (
             <div className="cc-aviso cc-av-oro">
@@ -413,14 +419,26 @@ export function SolicitudDetailPage() {
               {solicitud.respuesta_solicitante}
             </div>
           )}
+          <div style={{ display: 'grid', gap: 8, margin: '4px 0 14px' }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <input type="checkbox" style={{ width: 18, minHeight: 18, marginTop: 2 }}
+                checked={recibiOriginales} onChange={(e) => setRecibiOriginales(e.target.checked)} />
+              Recibí el vale y las facturas originales, y coinciden con lo cargado en el sistema.
+            </label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+              <input type="checkbox" style={{ width: 18, minHeight: 18, marginTop: 2 }}
+                checked={firmaVerificada} onChange={(e) => setFirmaVerificada(e.target.checked)} />
+              Están firmados por {solicitud.coordinador?.full_name ?? 'el superior inmediato'}.
+            </label>
+          </div>
           <div className="cc-campo" style={{ maxWidth: 460 }}>
-            <label>Observación (obligatoria si no coincide)</label>
+            <label>Observación (obligatoria si no coincide o falta la firma)</label>
             <input value={obsFisica} onChange={(e) => setObsFisica(e.target.value)} />
           </div>
           <div className="cc-acc">
-            <button className="cc-btn cc-btn-ok" disabled={trabajando}
+            <button className="cc-btn cc-btn-ok" disabled={trabajando || !recibiOriginales || !firmaVerificada}
               onClick={() => accion(
-                () => verificarFisica(solicitud.id, true, obsFisica, perfil!.id),
+                () => verificarFisica(solicitud.id, true, obsFisica, perfil!.id, firmaVerificada),
                 'Documentación conforme. La solicitud queda cerrada.'
               )}>
               Recibí y coincide
