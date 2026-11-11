@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   avalarSolicitud, decidirSolicitud, desembolsar, listarComprobantes, listarMovimientos,
@@ -7,7 +7,7 @@ import {
 } from '../lib/api'
 import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { useAuth } from '../hooks/useAuth'
-import { bs, fechaHora, horasRestantes } from '../lib/formato'
+import { bs, etiquetaComprobante, fechaHora, horasRestantes } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Estado, Exito, Reloj } from '../components/Ui'
 import { ValeQR } from '../components/ValeQR'
 import { SubirArchivo } from '../components/SubirArchivo'
@@ -29,23 +29,34 @@ export function SolicitudDetailPage() {
   const [observacion, setObservacion] = useState('')
   const [obsFisica, setObsFisica] = useState('')
   const [totalFacturado, setTotalFacturado] = useState(0)
+  const [cantidadFacturas, setCantidadFacturas] = useState(0)
+  const montoEditado = useRef(false)
   const [respuesta, setRespuesta] = useState('')
   const [extra, setExtra] = useState<File | null>(null)
   const [montoReal, setMontoReal] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [trabajando, setTrabajando] = useState(false)
 
+  /** Suma de facturas y adjuntos. Se llama al cargar y cada vez que se agrega o quita una factura. */
+  const recalcularFacturas = useCallback(async () => {
+    if (!id) return
+    const [fs, c] = await Promise.all([listarFacturas(id), listarComprobantes(id)])
+    const total = Math.round(fs.reduce((a, f) => a + Number(f.monto), 0) * 100) / 100
+    setTotalFacturado(total)
+    setCantidadFacturas(fs.length)
+    setComprobantes(c)
+    // Mientras la persona no escriba otro monto, el gasto real sigue a las facturas.
+    if (!montoEditado.current) setMontoReal(total > 0 ? String(total) : '')
+  }, [id])
+
   const cargar = useCallback(async () => {
     if (!id) return
     try {
-      const [s, c, m] = await Promise.all([
-        obtenerSolicitud(id), listarComprobantes(id), listarMovimientos({ solicitudId: id })
-      ])
-      setSolicitud(s); setComprobantes(c); setMovimientos(m)
-      const fs = await listarFacturas(id)
-      setTotalFacturado(fs.reduce((a, f) => a + Number(f.monto), 0))
+      const [s, m] = await Promise.all([obtenerSolicitud(id), listarMovimientos({ solicitudId: id })])
+      setSolicitud(s); setMovimientos(m)
+      await recalcularFacturas()
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
-  }, [id])
+  }, [id, recalcularFacturas])
 
   useEffect(() => { cargar() }, [cargar])
 
@@ -70,7 +81,10 @@ export function SolicitudDetailPage() {
     setTrabajando(true); setError(null); setExito(null)
     try { await fn(); setExito(mensaje); await cargar() }
     catch (e: any) { setError(e.message ?? 'No se pudo completar la acción.') }
-    finally { setTrabajando(false) }
+    finally {
+      setTrabajando(false)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
   return (
@@ -135,7 +149,7 @@ export function SolicitudDetailPage() {
           ))}
           {comprobantes.map((c) => (
             <li key={c.id}>
-              <div>Comprobante de {c.tipo} · <EnlaceArchivo ruta={c.archivo_url}>abrir</EnlaceArchivo></div>
+              <div>{etiquetaComprobante(c)} · <EnlaceArchivo ruta={c.archivo_url}>abrir</EnlaceArchivo></div>
               <div className="cuando">{fechaHora(c.fecha_subida)}</div>
             </li>
           ))}
@@ -209,6 +223,7 @@ export function SolicitudDetailPage() {
       {['desembolsado', 'pendiente_devolucion', 'pendiente_verificacion', 'completado'].includes(solicitud.estado) && (
         <FacturasDeSolicitud
           solicitudId={solicitud.id}
+          onCambio={() => { recalcularFacturas().catch((e) => setError(e.message)) }}
           editable={
             ['admin_caja', 'super_admin'].includes(rol)
             || (esPropia && (
@@ -222,8 +237,11 @@ export function SolicitudDetailPage() {
       {puedeRendir && (() => {
         const recibido = Number(solicitud.monto_solicitado)
         const gastado = Number(montoReal || 0)
-        const sobra = montoReal ? recibido - gastado : null
+        const sobra = montoReal ? Math.round((recibido - gastado) * 100) / 100 : null
         const excede = gastado > recibido
+        const sinFacturas = cantidadFacturas === 0
+        const faltaComprobante = sinFacturas && !archivo
+        const distintoDeFacturas = !sinFacturas && montoReal !== '' && gastado !== totalFacturado
 
         return (
           <div className="cc-card" style={{ maxWidth: 620 }}>
@@ -237,24 +255,18 @@ export function SolicitudDetailPage() {
                 </tr>
                 <tr>
                   <td>
-                    Suma de las facturas cargadas
-                    {totalFacturado === 0 && (
+                    Facturas cargadas ({cantidadFacturas})
+                    {sinFacturas && (
                       <div className="cc-tenue" style={{ fontSize: '.85rem' }}>
                         Todavía no cargaste ninguna factura arriba.
                       </div>
                     )}
                   </td>
-                  <td className="num">
-                    {bs(totalFacturado)}
-                    {totalFacturado > 0 && String(totalFacturado) !== montoReal && (
-                      <div>
-                        <button className="cc-btn cc-btn-x" style={{ marginTop: 6 }}
-                          onClick={() => setMontoReal(String(totalFacturado))}>
-                          Usar este monto
-                        </button>
-                      </div>
-                    )}
-                  </td>
+                  <td className="num">{bs(totalFacturado)}</td>
+                </tr>
+                <tr>
+                  <td><strong>{sobra != null && sobra < 0 ? 'Gastaste de más' : 'Diferencia a devolver'}</strong></td>
+                  <td className="num"><strong>{sobra == null ? '—' : bs(Math.abs(sobra))}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -262,8 +274,17 @@ export function SolicitudDetailPage() {
             <div className="cc-campo" style={{ maxWidth: 260 }}>
               <label>¿Cuánto gastaste realmente?</label>
               <input type="number" step="0.01" min="0" value={montoReal}
-                onChange={(e) => setMontoReal(e.target.value)} />
+                onChange={(e) => { montoEditado.current = true; setMontoReal(e.target.value) }} />
             </div>
+
+            {distintoDeFacturas && (
+              <p className="cc-tenue" style={{ fontSize: 13, marginTop: -6 }}>
+                No coincide con la suma de las facturas ({bs(totalFacturado)}).{' '}
+                <button className="cc-btn cc-btn-x" onClick={() => { montoEditado.current = false; setMontoReal(String(totalFacturado)) }}>
+                  Usar la suma de las facturas
+                </button>
+              </p>
+            )}
 
             {montoReal && !excede && (
               <div className={`cc-aviso ${sobra! > 0 ? 'cc-av-oro' : 'cc-av-ok'}`}>
@@ -280,24 +301,32 @@ export function SolicitudDetailPage() {
               </div>
             )}
 
-            <SubirArchivo etiqueta="Comprobante de compra" onSeleccion={setArchivo} />
+            <SubirArchivo
+              etiqueta={sinFacturas
+                ? 'Comprobante de compra (recibo o nota de venta)'
+                : 'Comprobante adicional (opcional)'}
+              onSeleccion={setArchivo}
+            />
 
-            <button className="cc-btn cc-btn-p" disabled={trabajando || !montoReal || !archivo}
+            <button className="cc-btn cc-btn-p" disabled={trabajando || !montoReal || faltaComprobante}
               onClick={() => accion(async () => {
-                await subirComprobante({
-                  archivo: archivo!, solicitudId: solicitud.id, tipo: 'compra', usuarioId: perfil!.id
-                })
+                if (archivo) {
+                  await subirComprobante({
+                    archivo, solicitudId: solicitud.id, tipo: 'compra', usuarioId: perfil!.id
+                  })
+                }
                 const hay = await reportarGasto(solicitud, Number(montoReal))
+                setArchivo(null); montoEditado.current = false
                 if (hay) navegar(`/devoluciones/${solicitud.id}`)
-              }, 'Gasto reportado.')}>
-              Guardar rendición
+              }, 'Rendición guardada.')}>
+              {trabajando ? 'Guardando…' : 'Guardar rendición'}
             </button>
 
-            {(!montoReal || !archivo) && (
+            {(!montoReal || faltaComprobante) && (
               <p className="cc-tenue" style={{ fontSize: 13 }}>
-                Falta {!montoReal ? 'escribir cuánto gastaste' : ''}
-                {!montoReal && !archivo ? ' y ' : ''}
-                {!archivo ? 'adjuntar el comprobante de compra' : ''}.
+                Falta {!montoReal ? 'cargar las facturas o escribir cuánto gastaste' : ''}
+                {!montoReal && faltaComprobante ? ' y ' : ''}
+                {faltaComprobante ? 'adjuntar un comprobante, porque no hay facturas cargadas' : ''}.
               </p>
             )}
           </div>

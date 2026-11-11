@@ -81,7 +81,7 @@ export function DevolucionesPage() {
         <ValeQR
           titulo="Cuenta de caja chica"
           qrRuta={parametros?.qr_caja_url}
-          nota="Escanea este código desde tu banco y transfiere la diferencia a la cuenta de caja chica."
+          nota="Transfiere la diferencia a la cuenta de caja chica."
           faltaQR="La caja todavía no tiene cargado su QR de cobro. Pídeselo al administrador de caja."
           datos={{
             solicitud_id: solicitud.id, monto: diferencia,

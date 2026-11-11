@@ -5,7 +5,7 @@ export type EstadoSolicitud =
   | 'pendiente_devolucion' | 'pendiente_verificacion' | 'completado' | 'rechazado'
 
 export type EstadoInforme = 'borrador' | 'pendiente_daf' | 'aprobado_daf' | 'completado' | 'rechazado'
-export type TipoComprobante = 'compra' | 'devolucion'
+export type TipoComprobante = 'cotizacion' | 'compra' | 'devolucion'
 export type TipoMovimiento = 'desembolso' | 'devolucion' | 'reposicion'
 export type EstadoMovimiento = 'pendiente_validacion' | 'aprobado'
 export type CanalAviso = 'whatsapp' | 'correo' | 'ambos'

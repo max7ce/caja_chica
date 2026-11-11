@@ -54,7 +54,7 @@ export function SolicitudNuevaPage() {
         categoria
       })
       if (archivo) {
-        await subirComprobante({ archivo, solicitudId: id, tipo: 'compra', usuarioId: perfil!.id, descripcion: 'Respaldo inicial' })
+        await subirComprobante({ archivo, solicitudId: id, tipo: 'cotizacion', usuarioId: perfil!.id, descripcion: 'Respaldo inicial' })
       }
       navegar(`/solicitudes/${id}`)
     } catch (err: any) {
@@ -64,7 +64,7 @@ export function SolicitudNuevaPage() {
 
   return (
     <>
-      <Cabecera titulo="Pedir caja chica" bajada="El DAF recibe el pedido por WhatsApp y por correo, y decide desde cualquiera de los dos." />
+      <Cabecera titulo="Pedir caja chica" bajada="Tu superior inmediato revisa el pedido y luego pasa al DAF, que lo autoriza por WhatsApp o por correo." />
       {bloqueado ? (
         <div className="cc-aviso cc-av-mal">
           Tienes una rendición fuera de plazo. Regularízala para poder pedir vales nuevos.
@@ -96,7 +96,7 @@ export function SolicitudNuevaPage() {
         <SubirArchivo etiqueta="Cotización o respaldo (opcional)" onSeleccion={setArchivo} disabled={bloqueado} />
         <div className="cc-acc">
           <button className="cc-btn cc-btn-p" disabled={enviando || bloqueado || excede}>
-            {enviando ? 'Enviando…' : 'Enviar al DAF'}
+            {enviando ? 'Enviando…' : 'Enviar a superior'}
           </button>
           <button type="button" className="cc-btn" onClick={() => navegar('/solicitudes')}>Cancelar</button>
         </div>
