@@ -78,3 +78,10 @@ export function validarArchivo(bucket: Bucket, archivo: File) {
     throw new Error(`El archivo pesa más de ${l.maxMB} MB. Reduce la foto o el PDF e inténtalo de nuevo.`)
   }
 }
+
+/** Descarga el archivo como Blob (para guardarlo o compartirlo desde el teléfono). */
+export async function descargarArchivo(bucket: Bucket, ruta: string): Promise<Blob> {
+  const { data, error } = await supabase.storage.from(bucket).download(ruta)
+  if (error || !data) throw new Error('No se pudo descargar la imagen del QR.')
+  return data
+}
