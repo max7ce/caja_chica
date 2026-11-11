@@ -19,6 +19,7 @@ export function ValidarDevolucionesPage() {
   const [adjuntos, setAdjuntos] = useState<Record<string, Comprobante[]>>({})
   const [facturas, setFacturas] = useState<Record<string, Factura[]>>({})
   const [observaciones, setObservaciones] = useState<Record<string, string>>({})
+  const [checks, setChecks] = useState<Record<string, { originales: boolean; firma: boolean }>>({})
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState<string | null>(null)
@@ -51,8 +52,13 @@ export function ValidarDevolucionesPage() {
       setError('Para observar la documentación hay que indicar qué falta o qué no coincide.')
       return
     }
+    const c = checks[sol.id]
+    if (conforme && !(c?.originales && c?.firma)) {
+      setError('Para dar por válida la rendición marca que recibiste los originales y que están firmados por el superior.')
+      return
+    }
     setTrabajando(sol.id); setError(null)
-    try { await verificarFisica(sol.id, conforme, obs, perfil!.id); await cargar() }
+    try { await verificarFisica(sol.id, conforme, obs, perfil!.id, !!c?.firma); await cargar() }
     catch (e: any) { setError(e.message) } finally { setTrabajando(null) }
   }
 
@@ -107,8 +113,8 @@ export function ValidarDevolucionesPage() {
       <div className="cc-card">
         <h2>Documentación física por recibir</h2>
         <p className="cc-tenue" style={{ marginTop: 0 }}>
-          El solicitante ya rindió en el sistema. Falta que entregue el vale y las facturas con la firma
-          y el sello de su coordinador al reverso, y que coincidan con lo cargado. Este es el momento de
+          El solicitante ya rindió en el sistema. La rendición solo se da por válida cuando entrega el
+          vale y las facturas originales, firmados por su superior inmediato, y coinciden con lo cargado. Este es el momento de
           revisar también los datos fiscales: lo que se verifique acá es lo que después va al informe de
           rendición sin volver a tipearse.
         </p>
@@ -179,9 +185,23 @@ export function ValidarDevolucionesPage() {
                         style={{ width: '100%', font: 'inherit', fontSize: '.88rem', padding: '6px 10px', border: '1px solid #ced4da', borderRadius: 4 }}
                       />
                     </td>
-                    <td>
-                      <div className="cc-acc">
-                        <button className="cc-btn cc-btn-x cc-btn-ok" disabled={trabajando === sol.id}
+                    <td style={{ minWidth: 220 }}>
+                      {(['originales', 'firma'] as const).map((k) => (
+                        <label key={k} style={{ display: 'flex', gap: 6, alignItems: 'flex-start', fontSize: '.85rem', marginBottom: 4 }}>
+                          <input type="checkbox" style={{ width: 16, minHeight: 16, marginTop: 2 }}
+                            checked={!!checks[sol.id]?.[k]}
+                            onChange={(e) => setChecks({
+                              ...checks,
+                              [sol.id]: { ...(checks[sol.id] ?? { originales: false, firma: false }), [k]: e.target.checked }
+                            })} />
+                          {k === 'originales'
+                            ? 'Originales recibidos y coinciden'
+                            : `Firmados por ${sol.coordinador?.full_name ?? 'el superior'}`}
+                        </label>
+                      ))}
+                      <div className="cc-acc" style={{ marginTop: 6 }}>
+                        <button className="cc-btn cc-btn-x cc-btn-ok"
+                          disabled={trabajando === sol.id || !checks[sol.id]?.originales || !checks[sol.id]?.firma}
                           onClick={() => cotejar(sol, true)}>
                           Recibí y coincide
                         </button>

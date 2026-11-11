@@ -89,12 +89,14 @@ export interface Solicitud {
   fecha_recepcion_fisica: string | null
   verificado_por_id: string | null
   conforme_fisica: boolean | null
+  firma_superior: boolean | null
   observacion_fisica: string | null
   respuesta_solicitante: string | null
   fecha_respuesta_solicitante: string | null
   admin_caja_id: string | null
   aprobado_por_id: string | null
   solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null
+  coordinador?: Pick<Profile, 'id' | 'full_name'> | null
 }
 
 export interface Factura {

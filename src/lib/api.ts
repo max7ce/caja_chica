@@ -6,7 +6,7 @@ import type {
 } from '../types/database'
 
 const SEL_SOL =
-  '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento, qr_url)'
+  '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento, qr_url), coordinador:profiles!solicitudes_coordinador_id_fkey(id, full_name)'
 
 /* ---------------------------------------------------------------- básicos */
 
@@ -299,7 +299,9 @@ export async function solicitudesSinRendir(): Promise<Solicitud[]> {
   const ids = (rendidas ?? []).map((r) => r.solicitud_id)
 
   let q = supabase.from('solicitudes').select(SEL_SOL)
-    .in('estado', ['completado', 'pendiente_devolucion']).order('fecha_desembolso')
+    // Solo las que pasaron el cotejo físico con firma del superior (la base lo exige también)
+    .eq('estado', 'completado').eq('conforme_fisica', true).eq('firma_superior', true)
+    .order('fecha_desembolso')
   if (ids.length) q = q.not('id', 'in', `(${ids.join(',')})`)
 
   const { data, error } = await q
@@ -623,15 +625,21 @@ export async function actualizarCategoria(id: string, cambios: Partial<Categoria
 /**
  * Cotejo de la documentación física contra lo cargado en el sistema.
  *
- * Conforme cierra la solicitud. No conforme la deja abierta con la
- * observación a la vista del solicitante, que debe corregir y volver a
- * presentar los papeles.
+ * Conforme cierra la solicitud, y solo es posible si se recibieron los
+ * originales y llevan la firma del superior inmediato (la base lo exige).
+ * No conforme la deja abierta con la observación a la vista del
+ * solicitante, que debe corregir y volver a presentar los papeles.
  */
 export async function verificarFisica(
-  solicitudId: string, conforme: boolean, observacion: string, adminId: string
+  solicitudId: string, conforme: boolean, observacion: string, adminId: string,
+  firmaSuperior = false
 ) {
+  if (conforme && !firmaSuperior) {
+    throw new Error('Para dar por válida la rendición, los documentos físicos deben estar firmados por el superior inmediato.')
+  }
   const { error } = await supabase.from('solicitudes').update({
     conforme_fisica: conforme,
+    firma_superior: conforme ? true : null,
     observacion_fisica: observacion.trim() || null,
     fecha_recepcion_fisica: new Date().toISOString(),
     verificado_por_id: adminId,
