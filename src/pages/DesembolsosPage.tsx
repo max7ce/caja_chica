@@ -31,7 +31,7 @@ export function DesembolsosPage() {
   }
 
   if (cargando) return <Cargando />
-  const umbral = parametros?.umbral_reposicion ?? 2000
+  const umbral = parametros?.umbral_reposicion ?? 700
 
   return (
     <>

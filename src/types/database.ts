@@ -4,7 +4,8 @@ export type EstadoSolicitud =
   | 'pendiente_coordinador' | 'pendiente_daf' | 'aprobado_daf' | 'desembolsado'
   | 'pendiente_devolucion' | 'pendiente_verificacion' | 'completado' | 'rechazado'
 
-export type EstadoInforme = 'borrador' | 'pendiente_daf' | 'aprobado_daf' | 'completado' | 'rechazado'
+export type EstadoInforme =
+  | 'borrador' | 'pendiente_daf' | 'aprobado_daf' | 'reposicion_solicitada' | 'completado' | 'rechazado'
 export type TipoComprobante = 'cotizacion' | 'compra' | 'devolucion'
 export type TipoMovimiento = 'desembolso' | 'devolucion' | 'reposicion'
 export type EstadoMovimiento = 'pendiente_validacion' | 'aprobado'
@@ -155,6 +156,8 @@ export interface InformeRendicion {
   reporte_contable_nro: string | null
   reporte_contable_fecha: string | null
   fecha_aprobacion_daf: string | null
+  fecha_pedido_reposicion: string | null
+  pedido_reposicion_por_id: string | null
 }
 
 export interface SaldoCaja {

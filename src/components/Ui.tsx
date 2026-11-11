@@ -19,7 +19,8 @@ export function Estado({ estado }: { estado: EstadoSolicitud }) {
 const INFORME: Record<EstadoInforme, [string, string]> = {
   borrador: ['cc-ok', 'Borrador'],
   pendiente_daf: ['cc-espera', 'Esperando al DAF'],
-  aprobado_daf: ['cc-curso', 'Aprobado, en contabilidad'],
+  aprobado_daf: ['cc-espera', 'Aprobado, falta pedir reposición'],
+  reposicion_solicitada: ['cc-curso', 'Reposición pedida, en contabilidad'],
   completado: ['cc-ok', 'Repuesto'],
   rechazado: ['cc-mal', 'Rechazado']
 }
