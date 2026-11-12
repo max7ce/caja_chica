@@ -293,8 +293,15 @@ export async function obtenerSaldo(periodoId: string | null): Promise<SaldoCaja>
 
 /* --------------------------------------------------- rendición de cuentas */
 
+/** Estados en los que un informe todavía no terminó su ciclo. */
+export const INFORME_EN_CURSO: InformeRendicion['estado'][] =
+  ['borrador', 'pendiente_daf', 'aprobado_daf', 'reposicion_solicitada']
+
 export async function solicitudesSinRendir(): Promise<Solicitud[]> {
-  const { data: rendidas, error: e1 } = await supabase.from('informe_solicitudes').select('solicitud_id')
+  // Las de un informe rechazado vuelven a estar disponibles para el siguiente.
+  const { data: rendidas, error: e1 } = await supabase.from('informe_solicitudes')
+    .select('solicitud_id, informe:informe_rendicion_cuentas!inner(estado)')
+    .neq('informe.estado', 'rechazado')
   if (e1) throw e1
   const ids = (rendidas ?? []).map((r) => r.solicitud_id)
 
@@ -309,27 +316,30 @@ export async function solicitudesSinRendir(): Promise<Solicitud[]> {
   return (data ?? []) as Solicitud[]
 }
 
-export async function crearInforme(o: {
-  adminCajaId: string; periodoId: string | null; solicitudes: Solicitud[]
-  observaciones: string; montoReposicion: number
-}): Promise<string> {
-  const totalDesembolsado = o.solicitudes.reduce((s, x) => s + Number(x.monto_solicitado), 0)
-  const totalDevuelto = o.solicitudes.reduce(
+/** Gasto neto de un grupo de solicitudes: lo que la reposición tiene que devolver a la caja. */
+export function gastoNeto(solicitudes: Solicitud[]) {
+  const desembolsado = solicitudes.reduce((s, x) => s + Number(x.monto_solicitado), 0)
+  const devuelto = solicitudes.reduce(
     (s, x) => s + Math.max(Number(x.monto_solicitado) - Number(x.monto_real ?? x.monto_solicitado), 0), 0)
-  const fechas = o.solicitudes.map((s) => new Date(s.fecha_creacion).getTime())
+  const r = (n: number) => Math.round(n * 100) / 100
+  return { desembolsado: r(desembolsado), devuelto: r(devuelto), neto: r(desembolsado - devuelto) }
+}
+
+/**
+ * Informe del ciclo. La base lo permite solo con saldo ≤ umbral y sin otro
+ * informe en curso, y calcula los totales y la reposición (gasto neto) a
+ * partir de las solicitudes: no se envían montos desde aquí.
+ */
+export async function crearInforme(o: {
+  adminCajaId: string; periodoId: string | null; solicitudes: Solicitud[]; observaciones: string
+}): Promise<string> {
   const saldo = await obtenerSaldo(o.periodoId)
 
   const { data, error } = await supabase.from('informe_rendicion_cuentas').insert({
     periodo_id: o.periodoId,
     admin_caja_id: o.adminCajaId,
-    monto_reposicion: o.montoReposicion,
-    fecha_inicio_periodo: fechas.length ? new Date(Math.min(...fechas)).toISOString() : null,
-    fecha_fin_periodo: fechas.length ? new Date(Math.max(...fechas)).toISOString() : null,
     // Nace en borrador: primero hay que cargar las facturas en el sistema
     // contable y adjuntar su reporte, recién después va al DAF.
-    estado: 'borrador',
-    total_desembolsado: totalDesembolsado,
-    total_devuelto: totalDevuelto,
     saldo_cuenta: saldo.saldo,
     observaciones: o.observaciones
   }).select('id').single()
@@ -419,27 +429,37 @@ export async function resolverInforme(informe: InformeRendicion, aprobado: boole
   }).eq('id', informe.id)
   if (error) throw error
 
-  // El administrador se entera del resultado; contabilidad solo si se aprobó,
-  // porque recién ahí tienen algo que hacer.
+  // El administrador se entera del resultado. Si se aprobó, le toca a él
+  // pedir la reposición; contabilidad recién actúa con ese pedido.
   await agendarAviso('informe_aprobado', 'correo', informe.admin_caja_id, informe.id,
     { estado: aprobado ? 'aprobado' : 'rechazado' }, 'informe')
+}
 
-  if (aprobado) {
-    const { data: contables } = await supabase
-      .from('profiles').select('id').eq('role', 'contabilidad').eq('activo', true)
-    for (const c of contables ?? []) {
-      await agendarAviso('reposicion_por_procesar', 'correo', c.id, informe.id,
-        { monto: informe.monto_reposicion }, 'informe')
-    }
+/**
+ * Pedido de reposición: paso obligatorio y manual del administrador de caja,
+ * después de que el DAF aprueba el informe del ciclo.
+ */
+export async function pedirReposicion(informe: InformeRendicion) {
+  const { error } = await supabase.from('informe_rendicion_cuentas')
+    .update({ estado: 'reposicion_solicitada' })
+    .eq('id', informe.id).eq('estado', 'aprobado_daf')
+  if (error) throw error
+
+  const { data: contables } = await supabase
+    .from('profiles').select('id').eq('role', 'contabilidad').eq('activo', true)
+  for (const c of contables ?? []) {
+    await agendarAviso('reposicion_por_procesar', 'correo', c.id, informe.id,
+      { monto: informe.monto_reposicion }, 'informe')
   }
 }
 
-export async function registrarReposicion(informe: InformeRendicion, adminCajaId: string) {
+/** La registra contabilidad (quien transfiere), nunca quien recibe el dinero. */
+export async function registrarReposicion(informe: InformeRendicion, usuarioId: string) {
   const { error: e1 } = await supabase.from('movimientos_caja').insert({
     tipo: 'reposicion', monto: informe.monto_reposicion, informe_id: informe.id,
-    periodo_id: informe.periodo_id, admin_caja_id: adminCajaId, registrado_por_id: adminCajaId,
+    periodo_id: informe.periodo_id, admin_caja_id: informe.admin_caja_id, registrado_por_id: usuarioId,
     descripcion: 'Reposición de caja chica por contabilidad',
-    estado: 'aprobado', aprobado_por_id: adminCajaId
+    estado: 'aprobado', aprobado_por_id: usuarioId
   })
   if (e1) throw e1
 

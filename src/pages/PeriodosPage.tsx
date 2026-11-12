@@ -107,13 +107,13 @@ export function PeriodosPage() {
             <input type="number" value={form.tope_solicitud ?? ''} onChange={(e) => setForm({ ...form, tope_solicitud: Number(e.target.value) })} />
           </div>
           <div className="cc-campo">
-            <label>Umbral de reposición</label>
+            <label>Saldo para pedir reposición (≤)</label>
             <input type="number" value={form.umbral_reposicion ?? ''} onChange={(e) => setForm({ ...form, umbral_reposicion: Number(e.target.value) })} />
           </div>
         </div>
         <div className="cc-dos">
           <div className="cc-campo">
-            <label>Monto de reposición</label>
+            <label>Fondo de caja chica</label>
             <input type="number" value={form.monto_reposicion ?? ''} onChange={(e) => setForm({ ...form, monto_reposicion: Number(e.target.value) })} />
           </div>
           <div className="cc-campo">

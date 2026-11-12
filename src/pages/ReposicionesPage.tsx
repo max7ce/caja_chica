@@ -35,7 +35,7 @@ export function ReposicionesPage() {
 
   if (cargando) return <Cargando />
 
-  const pendientes = informes.filter((i) => i.estado === 'aprobado_daf')
+  const pendientes = informes.filter((i) => i.estado === 'reposicion_solicitada')
   const hechas = informes.filter((i) => i.estado === 'completado')
   const admin = (id: string) => perfiles.get(id)
   const totalPendiente = pendientes.reduce((a, i) => a + Number(i.monto_reposicion), 0)
@@ -54,13 +54,13 @@ export function ReposicionesPage() {
     <>
       <Cabecera
         titulo="Reposiciones por procesar"
-        bajada="Informes que el DAF ya aprobó. Transfiere el monto al QR del administrador de caja y registra el movimiento para que el saldo vuelva a subir."
+        bajada="Pedidos de reposición del administrador de caja, sobre informes que el DAF ya aprobó. Transfiere el monto exacto al QR del administrador y registra el movimiento para que el saldo vuelva a subir."
       />
       <AvisoError mensaje={error} />
       <Exito mensaje={exito} />
 
       <div className="cc-grid cc-g3">
-        <Dato valor={pendientes.length} rotulo="Esperando transferencia" />
+        <Dato valor={pendientes.length} rotulo="Pedidos por transferir" />
         <Dato valor={bs(totalPendiente)} rotulo="Monto comprometido" />
         <Dato valor={hechas.length} rotulo="Reposiciones hechas" />
       </div>

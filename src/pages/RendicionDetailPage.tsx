@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   enviarInformeAlDaf, facturasDeInforme, listarComprobantes, obtenerInforme,
-  registrarReposicion, resolverInforme, subirReporteContable
+  pedirReposicion, registrarReposicion, resolverInforme, subirReporteContable
 } from '../lib/api'
 import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
@@ -47,7 +47,9 @@ export function RendicionDetailPage() {
   const puedeResolver = ['daf', 'super_admin'].includes(rol) && informe.estado === 'pendiente_daf'
   // La reposición la procesa contabilidad, no el administrador de caja:
   // quien recibe el dinero no puede ser quien declara haberlo recibido.
-  const puedeReponer = ['contabilidad', 'super_admin'].includes(rol) && informe.estado === 'aprobado_daf'
+  const puedeReponer = ['contabilidad', 'super_admin'].includes(rol) && informe.estado === 'reposicion_solicitada'
+  // El pedido es obligatorio y manual: lo hace el administrador de caja tras la aprobación del DAF.
+  const puedePedir = esAdminDelInforme && informe.estado === 'aprobado_daf'
 
   async function accion(fn: () => Promise<void>, mensaje: string) {
     setTrabajando(true); setError(null); setExito(null)
@@ -86,7 +88,7 @@ export function RendicionDetailPage() {
       <div className="cc-grid cc-g3">
         <Dato valor={bs(informe.total_desembolsado)} rotulo="Desembolsado" />
         <Dato valor={bs(informe.total_devuelto)} rotulo="Devuelto" />
-        <Dato valor={bs(informe.monto_reposicion)} rotulo="Reposición solicitada" />
+        <Dato valor={bs(informe.monto_reposicion)} rotulo="Reposición (gasto neto)" />
       </div>
 
       {informe.observaciones && (
@@ -239,7 +241,8 @@ export function RendicionDetailPage() {
       {puedeResolver && (
         <div className="cc-card">
           <h2>Decisión del DAF</h2>
-          <p className="cc-tenue">Los informes se aprueban solo desde el sistema, nunca desde WhatsApp: el monto y la formalidad lo justifican.</p>
+          <p className="cc-tenue">Los informes se aprueban solo desde el sistema, nunca desde WhatsApp: el monto y la formalidad lo justifican.
+            Si se aprueba, el administrador de caja hace después el pedido de reposición por {bs(informe.monto_reposicion)}.</p>
           <div className="cc-acc">
             <button className="cc-btn cc-btn-p" disabled={trabajando}
               onClick={() => accion(() => resolverInforme(informe, true, perfil!.id), 'Informe aprobado.')}>
@@ -253,11 +256,30 @@ export function RendicionDetailPage() {
         </div>
       )}
 
+      {puedePedir && (
+        <div className="cc-card">
+          <h2>Pedir la reposición</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            El DAF aprobó el informe{informe.fecha_aprobacion_daf && ` el ${fecha(informe.fecha_aprobacion_daf)}`}.
+            Para cerrar el ciclo tienes que pedir la reposición: contabilidad recién transfiere con este pedido.
+          </p>
+          <button className="cc-btn cc-btn-p" disabled={trabajando}
+            onClick={() => accion(
+              () => pedirReposicion(informe),
+              'Reposición pedida. Contabilidad ya fue avisada.'
+            )}>
+            Pedir reposición de {bs(informe.monto_reposicion)}
+          </button>
+        </div>
+      )}
+
       {puedeReponer && (
         <div className="cc-card">
           <h2>Procesar la reposición</h2>
           <p className="cc-tenue" style={{ marginTop: 0 }}>
-            El DAF ya aprobó este informe. Transfiere {bs(informe.monto_reposicion)} al QR de
+            El administrador de caja pidió la reposición
+            {informe.fecha_pedido_reposicion && ` el ${fecha(informe.fecha_pedido_reposicion)}`}.
+            Transfiere {bs(informe.monto_reposicion)} al QR de
             {' '}{admin?.full_name ?? 'el administrador de caja'} y registra el movimiento aquí.
           </p>
           <ValeQR
@@ -283,10 +305,23 @@ export function RendicionDetailPage() {
         </div>
       )}
 
-      {informe.estado === 'aprobado_daf' && ['admin_caja', 'daf'].includes(rol) && (
+      {informe.estado === 'aprobado_daf' && !puedePedir && (
         <div className="cc-aviso cc-av-oro">
-          Aprobado por el DAF. Contabilidad tiene que procesar la transferencia de
-          {' '}{bs(informe.monto_reposicion)} para que el saldo de caja vuelva a subir.
+          Aprobado por el DAF. Falta que el administrador de caja pida la reposición de
+          {' '}{bs(informe.monto_reposicion)}.
+        </div>
+      )}
+
+      {informe.estado === 'reposicion_solicitada' && !puedeReponer && (
+        <div className="cc-aviso cc-av-oro">
+          Reposición pedida{informe.fecha_pedido_reposicion && ` el ${fecha(informe.fecha_pedido_reposicion)}`}.
+          Contabilidad tiene que transferir {bs(informe.monto_reposicion)} para que el saldo de caja vuelva a subir.
+        </div>
+      )}
+
+      {informe.estado === 'rechazado' && (
+        <div className="cc-aviso cc-av-mal">
+          Informe rechazado. Sus solicitudes vuelven a estar disponibles para el próximo informe del ciclo.
         </div>
       )}
     </>

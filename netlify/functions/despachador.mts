@@ -70,7 +70,7 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
   }),
   reposicion_por_procesar: (v) => ({
     asunto: 'Reposición de caja chica por procesar',
-    cuerpo: `Hay un informe aprobado por el DAF esperando la transferencia de ${bs(v.monto)}.\nProcésala en ${URL_PUBLICA}/reposiciones`
+    cuerpo: `El administrador de caja pidió la reposición de ${bs(v.monto)} sobre un informe aprobado por el DAF.\nProcésala en ${URL_PUBLICA}/reposiciones`
   }),
   reposicion_hecha: (v) => ({
     asunto: 'Reposición acreditada',
@@ -100,7 +100,9 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
   }),
   informe_aprobado: (v) => ({
     asunto: `Informe de rendición ${v.estado}`,
-    cuerpo: `El informe de rendición fue ${v.estado} por la Dirección Administrativa Financiera.`
+    cuerpo: v.estado === 'aprobado'
+      ? `El informe de rendición fue aprobado por la Dirección Administrativa Financiera. Entra al informe y haz el pedido de reposición: ${URL_PUBLICA}/rendicion-cuentas`
+      : `El informe de rendición fue rechazado por la Dirección Administrativa Financiera. Sus solicitudes vuelven a quedar disponibles para el próximo informe.`
   })
 }
 

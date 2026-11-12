@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { crearInforme, listarInformes, listarPerfiles, obtenerSaldo, solicitudesSinRendir } from '../lib/api'
+import {
+  crearInforme, gastoNeto, INFORME_EN_CURSO, listarInformes, listarPerfiles, obtenerSaldo, solicitudesSinRendir
+} from '../lib/api'
 import { exportarInformes } from '../lib/exportar'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
@@ -12,7 +14,6 @@ export function RendicionCuentasPage() {
   const navegar = useNavigate()
   const [informes, setInformes] = useState<InformeRendicion[]>([])
   const [candidatas, setCandidatas] = useState<Solicitud[]>([])
-  const [elegidas, setElegidas] = useState<Set<string>>(new Set())
   const [observaciones, setObservaciones] = useState('')
   const [saldo, setSaldo] = useState(0)
   const [cargando, setCargando] = useState(true)
@@ -33,71 +34,98 @@ export function RendicionCuentasPage() {
   }, [puedeCrear, periodo])
   useEffect(() => { cargar() }, [cargar])
 
-  const seleccionadas = candidatas.filter((c) => elegidas.has(c.id))
-  const total = seleccionadas.reduce((s, x) => s + Number(x.monto_solicitado), 0)
-
   if (cargando) return <Cargando />
-  const umbral = parametros?.umbral_reposicion ?? 2000
+  const umbral = Number(parametros?.umbral_reposicion ?? 700)
+  const enCurso = informes.find((i) => INFORME_EN_CURSO.includes(i.estado))
+  const totales = gastoNeto(candidatas)
+  const puedeArmar = !enCurso && saldo <= umbral && candidatas.length > 0
 
   return (
     <>
-      <Cabecera titulo="Rendición de cuentas" bajada="Agrupa las solicitudes del período, envíalas al DAF y registra la reposición cuando llegue." />
+      <Cabecera titulo="Rendición de cuentas"
+        bajada={`Cuando el saldo llega a ${bs(umbral)} o menos se arma un único informe con todo lo rendido. El DAF lo aprueba, el administrador de caja pide la reposición y contabilidad la transfiere.`} />
       <AvisoError mensaje={error} />
-      {saldo <= umbral && <Alerta mensaje={`El saldo está en ${bs(saldo)}: toca rendir para pedir la reposición.`} />}
+      {saldo <= umbral && !enCurso && (
+        <Alerta mensaje={`El saldo está en ${bs(saldo)}: toca armar el informe del ciclo para pedir la reposición.`} />
+      )}
 
       {puedeCrear && (
         <div className="cc-card">
-          <h2>Armar un informe nuevo</h2>
-        <p className="cc-tenue" style={{ marginTop: 0 }}>
-          El informe queda en borrador. Después hay que cargar sus facturas en el sistema contable y
-          adjuntar el reporte que emite, y recién entonces se envía al DAF.
-        </p>
-          {!candidatas.length ? <Vacio texto="No hay solicitudes sin rendir." /> : (
+          <h2>Informe del ciclo</h2>
+
+          {enCurso ? (
+            <div className="cc-aviso cc-av-oro">
+              Hay un informe en curso (<EstadoInformeChip estado={enCurso.estado} />). Hasta que
+              contabilidad confirme su reposición no se puede armar otro.{' '}
+              <Link to={`/rendicion-cuentas/${enCurso.id}`}>Ver el informe</Link>
+            </div>
+          ) : saldo > umbral ? (
+            <div className="cc-aviso cc-av-ok">
+              El informe se arma cuando el saldo llegue a <strong>{bs(umbral)}</strong> o menos. Saldo
+              actual: <strong>{bs(saldo)}</strong>. Mientras tanto se acumulan las rendiciones cerradas:
+              {' '}{candidatas.length} solicitud(es), gasto neto {bs(totales.neto)}.
+            </div>
+          ) : !candidatas.length ? (
+            <Vacio texto="No hay solicitudes rendidas y cerradas para incluir." />
+          ) : null}
+
+          {candidatas.length > 0 && (
             <>
+              <p className="cc-tenue" style={{ marginTop: 14 }}>
+                Entran todas las solicitudes cerradas con su documentación física firmada y conforme. La
+                reposición es el gasto neto: lo desembolsado menos lo devuelto.
+              </p>
               <div className="cc-scroll">
                 <table className="cc-tabla">
                   <thead>
-                    <tr><th /><th>Fecha</th><th>Solicitante</th><th>Detalle</th>
+                    <tr><th>Fecha</th><th>Solicitante</th><th>Detalle</th>
                       <th className="num">Desembolsado</th><th className="num">Devuelto</th></tr>
                   </thead>
                   <tbody>
                     {candidatas.map((c) => (
                       <tr key={c.id}>
-                        <td>
-                          <input type="checkbox" style={{ width: 16, minHeight: 16 }} checked={elegidas.has(c.id)}
-                            onChange={() => setElegidas((p) => {
-                              const n = new Set(p)
-                              n.has(c.id) ? n.delete(c.id) : n.add(c.id)
-                              return n
-                            })} />
-                        </td>
                         <td className="cc-mono">{fecha(c.fecha_desembolso ?? c.fecha_creacion)}</td>
                         <td>{c.solicitante?.full_name ?? '—'}</td>
                         <td><Link to={`/solicitudes/${c.id}`}>{c.descripcion}</Link></td>
                         <td className="num">{bs(c.monto_solicitado)}</td>
-                        <td className="num">{c.monto_real == null ? '—' : bs(Number(c.monto_solicitado) - Number(c.monto_real))}</td>
+                        <td className="num">{bs(Math.max(Number(c.monto_solicitado) - Number(c.monto_real ?? c.monto_solicitado), 0))}</td>
                       </tr>
                     ))}
                   </tbody>
+                  <tfoot>
+                    <tr>
+                      <td colSpan={3}>Totales</td>
+                      <td className="num">{bs(totales.desembolsado)}</td>
+                      <td className="num">{bs(totales.devuelto)}</td>
+                    </tr>
+                    <tr>
+                      <td colSpan={4}><strong>Reposición a pedir (desembolsado − devuelto)</strong></td>
+                      <td className="num"><strong>{bs(totales.neto)}</strong></td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
+            </>
+          )}
+
+          {puedeArmar && (
+            <>
               <div className="cc-campo" style={{ marginTop: 18 }}>
                 <label>Observaciones para el DAF</label>
                 <textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
               </div>
-              <button className="cc-btn cc-btn-p" disabled={!seleccionadas.length || trabajando}
+              <button className="cc-btn cc-btn-p" disabled={trabajando}
                 onClick={async () => {
                   setTrabajando(true); setError(null)
                   try {
                     const id = await crearInforme({
                       adminCajaId: perfil!.id, periodoId: periodo?.id ?? null,
-                      solicitudes: seleccionadas, observaciones,
-                      montoReposicion: parametros?.monto_reposicion ?? 7000
+                      solicitudes: candidatas, observaciones
                     })
                     navegar(`/rendicion-cuentas/${id}`)
                   } catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
                 }}>
-                {trabajando ? 'Creando…' : `Crear informe — ${seleccionadas.length} solicitudes, ${bs(total)}`}
+                {trabajando ? 'Creando…' : `Crear informe del ciclo — ${candidatas.length} solicitudes, ${bs(totales.neto)}`}
               </button>
             </>
           )}

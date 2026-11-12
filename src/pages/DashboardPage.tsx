@@ -43,7 +43,7 @@ export function DashboardPage() {
   if (cargando) return <Cargando />
 
   const tope = parametros?.monto_reposicion ?? 7000
-  const umbral = parametros?.umbral_reposicion ?? 2000
+  const umbral = parametros?.umbral_reposicion ?? 700
   const valor = Number(saldo?.saldo ?? 0)
   const pct = Math.max(0, Math.min(100, (valor / tope) * 100))
   const bajo = valor <= umbral
@@ -70,7 +70,7 @@ export function DashboardPage() {
         </div>
       )}
       {bajo && !esSolicitante && (
-        <Alerta mensaje={`El saldo bajó de ${bs(umbral)}. Es momento de armar el informe de rendición para pedir la reposición.`} />
+        <Alerta mensaje={`El saldo bajó de ${bs(umbral)}. Es momento de armar el informe del ciclo para pedir la reposición.`} />
       )}
 
       <div className="cc-grid cc-g3">
@@ -82,7 +82,7 @@ export function DashboardPage() {
               <div className="cc-barra" style={{ height: 20, marginTop: 20, background: 'rgba(243,242,242,.22)' }}>
                 <span style={{ width: `${pct}%`, background: bajo ? 'var(--acento)' : '#f3f2f2' }} />
               </div>
-              <div className="nota">{Math.round(pct)}% del fondo · se repone con {bs(tope)} al llegar a {bs(umbral)}</div>
+              <div className="nota">{Math.round(pct)}% del fondo de {bs(tope)} · al llegar a {bs(umbral)} se arma el informe y se pide la reposición</div>
             </div>
           </div>
         )}
