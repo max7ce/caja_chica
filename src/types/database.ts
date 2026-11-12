@@ -96,7 +96,7 @@ export interface Solicitud {
   fecha_respuesta_solicitante: string | null
   admin_caja_id: string | null
   aprobado_por_id: string | null
-  solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url'> | null
+  solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'qr_url' | 'telefono'> | null
   coordinador?: Pick<Profile, 'id' | 'full_name'> | null
 }
 

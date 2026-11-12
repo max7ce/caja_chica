@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import {
+import { obtenerSolicitud,
   listarComprobantes, listarFacturas, listarMovimientos, listarSolicitudes,
   validarDevolucion, verificarFisica
 } from '../lib/api'
@@ -11,6 +11,7 @@ import { Cabecera, Cargando, Error as AvisoError, Vacio } from '../components/Ui
 import type { Comprobante, Factura, MovimientoCaja, Solicitud } from '../types/database'
 import { Persona } from '../components/Ui'
 import { bs as formatoBs } from '../lib/formato'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 export function ValidarDevolucionesPage() {
   const { perfil } = useAuth()
@@ -58,13 +59,27 @@ export function ValidarDevolucionesPage() {
       return
     }
     setTrabajando(sol.id); setError(null)
-    try { await verificarFisica(sol.id, conforme, obs, perfil!.id, !!c?.firma); await cargar() }
+    try {
+      await verificarFisica(sol.id, conforme, obs, perfil!.id, !!c?.firma)
+      ofrecerLuego(() => avisos.cotejo(sol, conforme, obs))
+      await cargar()
+    }
     catch (e: any) { setError(e.message) } finally { setTrabajando(null) }
   }
 
   async function validar(m: MovimientoCaja) {
     setTrabajando(m.id); setError(null)
-    try { await validarDevolucion(m, perfil!.id); await cargar() }
+    try {
+      await validarDevolucion(m, perfil!.id)
+      if (m.solicitud_id) {
+        const id = m.solicitud_id
+        ofrecerLuego(async () => {
+          const sol = await obtenerSolicitud(id)
+          return sol ? avisos.devolucionValidada(sol, Number(m.monto)) : []
+        })
+      }
+      await cargar()
+    }
     catch (e: any) { setError(e.message) } finally { setTrabajando(null) }
   }
 

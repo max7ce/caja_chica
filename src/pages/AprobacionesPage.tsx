@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Persona, Vacio } from '../components/Ui'
 import type { Solicitud } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 export function AprobacionesPage() {
   const { perfil } = useAuth()
@@ -22,11 +23,14 @@ export function AprobacionesPage() {
   async function resolver(s: Solicitud, aprobar: boolean) {
     setTrabajando(s.id); setError(null)
     try {
-      if (aprobar) await decidirSolicitud(s.id, perfil!.id, true)
-      else {
+      if (aprobar) {
+        await decidirSolicitud(s.id, perfil!.id, true)
+        ofrecerLuego(() => avisos.aprobado(s))
+      } else {
         const motivo = window.prompt('¿Por qué se rechaza?')
         if (!motivo) { setTrabajando(null); return }
         await decidirSolicitud(s.id, perfil!.id, false, motivo)
+        ofrecerLuego(() => avisos.rechazado(s, motivo))
       }
       await cargar()
     } catch (e: any) { setError(e.message) } finally { setTrabajando(null) }

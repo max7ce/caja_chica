@@ -12,6 +12,7 @@ import { useAuth } from '../hooks/useAuth'
 import { bs, etiquetaComprobante, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
 import type { Comprobante, Factura, InformeRendicion, Profile, Solicitud } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 export function RendicionDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -215,7 +216,7 @@ export function RendicionDetailPage() {
 
           <p style={{ marginTop: 18 }}><strong>3.</strong> Envíalo al DAF para que autorice la reposición.</p>
           <button className="cc-btn cc-btn-p" disabled={trabajando || !informe.reporte_contable_url}
-            onClick={() => accion(() => enviarInformeAlDaf(informe!), 'Informe enviado al DAF.')}>
+            onClick={() => accion(async () => { await enviarInformeAlDaf(informe!); ofrecerLuego(() => avisos.informeEnviado(informe!)) }, 'Informe enviado al DAF.')}>
             Enviar al DAF
           </button>
           {!informe.reporte_contable_url && (
@@ -246,11 +247,11 @@ export function RendicionDetailPage() {
             Si se aprueba, el administrador de caja hace después el pedido de reposición por {bs(informe.monto_reposicion)}.</p>
           <div className="cc-acc">
             <button className="cc-btn cc-btn-p" disabled={trabajando}
-              onClick={() => accion(() => resolverInforme(informe, true, perfil!.id), 'Informe aprobado.')}>
+              onClick={() => accion(async () => { await resolverInforme(informe, true, perfil!.id); ofrecerLuego(() => avisos.informeResuelto(informe, true)) }, 'Informe aprobado.')}>
               Aprobar informe
             </button>
             <button className="cc-btn cc-btn-r" disabled={trabajando}
-              onClick={() => accion(() => resolverInforme(informe, false, perfil!.id), 'Informe rechazado.')}>
+              onClick={() => accion(async () => { await resolverInforme(informe, false, perfil!.id); ofrecerLuego(() => avisos.informeResuelto(informe, false)) }, 'Informe rechazado.')}>
               Rechazar
             </button>
           </div>
@@ -292,7 +293,7 @@ export function RendicionDetailPage() {
           <div className="cc-acc" style={{ marginTop: 18 }}>
             <button className="cc-btn cc-btn-p" disabled={trabajando}
               onClick={() => accion(
-                () => registrarReposicion(informe, perfil!.id),
+                async () => { await registrarReposicion(informe, perfil!.id); ofrecerLuego(() => avisos.reposicionHecha(informe)) },
                 'Reposición registrada. El saldo de caja subió y el informe quedó cerrado.'
               )}>
               Confirmar transferencia de {bs(informe.monto_reposicion)}

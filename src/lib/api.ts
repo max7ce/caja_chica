@@ -6,7 +6,7 @@ import type {
 } from '../types/database'
 
 const SEL_SOL =
-  '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento, qr_url), coordinador:profiles!solicitudes_coordinador_id_fkey(id, full_name)'
+  '*, solicitante:profiles!solicitudes_solicitante_id_fkey(id, full_name, email, departamento, qr_url, telefono), coordinador:profiles!solicitudes_coordinador_id_fkey(id, full_name)'
 
 /* ---------------------------------------------------------------- básicos */
 
@@ -131,11 +131,7 @@ export async function decidirSolicitud(id: string, dafId: string, aprobar: boole
     })
     .eq('id', id)
   if (error) throw error
-
-  if (!aprobar) {
-    const { data: s } = await supabase.from('solicitudes').select('solicitante_id').eq('id', id).single()
-    if (s) await agendarAviso('solicitud_rechazada', 'correo', s.solicitante_id, id, { motivo: motivo ?? '' })
-  }
+  // Los avisos al solicitante y al administrador los genera la base.
 }
 
 /** El trigger de la base calcula el vencimiento hábil y agenda los recordatorios. */
@@ -268,9 +264,6 @@ export async function validarDevolucion(m: MovimientoCaja, adminCajaId: string) 
     const { error: e2 } = await supabase
       .from('solicitudes').update({ estado: 'pendiente_verificacion' }).eq('id', m.solicitud_id)
     if (e2) throw e2
-    await agendarAviso('devolucion_validada', 'whatsapp', m.solicitud!.solicitante_id, m.solicitud_id, {
-      monto: m.monto
-    })
   }
 }
 
@@ -381,13 +374,7 @@ export async function enviarInformeAlDaf(informe: InformeRendicion) {
     fecha_envio_daf: new Date().toISOString()
   }).eq('id', informe.id).eq('estado', 'borrador')
   if (error) throw error
-
-  const { data: dafs } = await supabase
-    .from('profiles').select('id').eq('role', 'daf').eq('activo', true)
-  for (const d of dafs ?? []) {
-    await agendarAviso('informe_enviado', 'correo', d.id, informe.id,
-      { monto: informe.total_desembolsado }, 'informe')
-  }
+  // El aviso al DAF lo genera la base.
 }
 
 export async function listarInformes(): Promise<InformeRendicion[]> {
@@ -428,11 +415,8 @@ export async function resolverInforme(informe: InformeRendicion, aprobado: boole
     aprobado_por_id: dafId
   }).eq('id', informe.id)
   if (error) throw error
-
-  // El administrador se entera del resultado. Si se aprobó, le toca a él
+  // El aviso al administrador lo genera la base. Si se aprobó, le toca a él
   // pedir la reposición; contabilidad recién actúa con ese pedido.
-  await agendarAviso('informe_aprobado', 'correo', informe.admin_caja_id, informe.id,
-    { estado: aprobado ? 'aprobado' : 'rechazado' }, 'informe')
 }
 
 /**
@@ -444,13 +428,7 @@ export async function pedirReposicion(informe: InformeRendicion) {
     .update({ estado: 'reposicion_solicitada' })
     .eq('id', informe.id).eq('estado', 'aprobado_daf')
   if (error) throw error
-
-  const { data: contables } = await supabase
-    .from('profiles').select('id').eq('role', 'contabilidad').eq('activo', true)
-  for (const c of contables ?? []) {
-    await agendarAviso('reposicion_por_procesar', 'correo', c.id, informe.id,
-      { monto: informe.monto_reposicion }, 'informe')
-  }
+  // El aviso a contabilidad lo genera la base.
 }
 
 /** La registra contabilidad (quien transfiere), nunca quien recibe el dinero. */
@@ -466,9 +444,7 @@ export async function registrarReposicion(informe: InformeRendicion, usuarioId: 
   const { error: e2 } = await supabase
     .from('informe_rendicion_cuentas').update({ estado: 'completado' }).eq('id', informe.id)
   if (e2) throw e2
-
-  await agendarAviso('reposicion_hecha', 'ambos', informe.admin_caja_id, informe.id,
-    { monto: informe.monto_reposicion }, 'informe')
+  // El aviso al administrador lo genera la base.
 }
 
 /* -------------------------------------------------- reporte para el DAF */

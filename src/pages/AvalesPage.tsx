@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Error as AvisoError, Persona, Vacio } from '../components/Ui'
 import type { Solicitud } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 /**
  * Bandeja del coordinador. El aval no corta el circuito: avalada o no, la
@@ -35,6 +36,7 @@ export function AvalesPage() {
     setTrabajando(s.id); setError(null)
     try {
       await avalarSolicitud(s.id, avala, obs)
+      ofrecerLuego(() => avisos.avalado(s, avala))
       await cargar()
     } catch (e: any) { setError(e.message) } finally { setTrabajando(null) }
   }

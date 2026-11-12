@@ -13,6 +13,7 @@ import { ValeQR } from '../components/ValeQR'
 import { SubirArchivo } from '../components/SubirArchivo'
 import { FacturasDeSolicitud } from '../components/FacturasDeSolicitud'
 import type { Comprobante, MovimientoCaja, Solicitud } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 export function SolicitudDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -173,11 +174,11 @@ export function SolicitudDetailPage() {
           </div>
           <div className="cc-acc">
             <button className="cc-btn cc-btn-ok" disabled={trabajando}
-              onClick={() => accion(() => avalarSolicitud(solicitud.id, true, observacion), 'Aval registrado. La solicitud pasó al DAF.')}>
+              onClick={() => accion(async () => { await avalarSolicitud(solicitud.id, true, observacion); ofrecerLuego(() => avisos.avalado(solicitud, true)) }, 'Aval registrado. La solicitud pasó al DAF.')}>
               Avalar
             </button>
             <button className="cc-btn cc-btn-r" disabled={trabajando || !observacion.trim()}
-              onClick={() => accion(() => avalarSolicitud(solicitud.id, false, observacion), 'Registrado. La solicitud pasó al DAF con tu observación.')}>
+              onClick={() => accion(async () => { await avalarSolicitud(solicitud.id, false, observacion); ofrecerLuego(() => avisos.avalado(solicitud, false)) }, 'Registrado. La solicitud pasó al DAF con tu observación.')}>
               No avalar
             </button>
           </div>
@@ -193,11 +194,11 @@ export function SolicitudDetailPage() {
           </div>
           <div className="cc-acc">
             <button className="cc-btn cc-btn-p" disabled={trabajando}
-              onClick={() => accion(() => decidirSolicitud(solicitud.id, perfil!.id, true), 'Solicitud autorizada.')}>
+              onClick={() => accion(async () => { await decidirSolicitud(solicitud.id, perfil!.id, true); ofrecerLuego(() => avisos.aprobado(solicitud)) }, 'Solicitud autorizada.')}>
               Autorizar
             </button>
             <button className="cc-btn cc-btn-r" disabled={trabajando || !motivo.trim()}
-              onClick={() => accion(() => decidirSolicitud(solicitud.id, perfil!.id, false, motivo.trim()), 'Solicitud rechazada.')}>
+              onClick={() => accion(async () => { await decidirSolicitud(solicitud.id, perfil!.id, false, motivo.trim()); ofrecerLuego(() => avisos.rechazado(solicitud, motivo.trim())) }, 'Solicitud rechazada.')}>
               Rechazar
             </button>
           </div>
@@ -218,7 +219,7 @@ export function SolicitudDetailPage() {
           />
           <div className="cc-acc" style={{ marginTop: 18 }}>
             <button className="cc-btn cc-btn-p" disabled={trabajando}
-              onClick={() => accion(() => desembolsar(solicitud, perfil!.id, periodo?.id ?? null), 'Desembolso registrado. El plazo empieza ahora.')}>
+              onClick={() => accion(async () => { await desembolsar(solicitud, perfil!.id, periodo?.id ?? null); ofrecerLuego(() => avisos.desembolsado(solicitud)) }, 'Desembolso registrado. El plazo empieza ahora.')}>
               Confirmar transferencia
             </button>
           </div>
@@ -237,6 +238,20 @@ export function SolicitudDetailPage() {
             ))
           }
         />
+      )}
+
+      {['admin_caja', 'super_admin'].includes(perfil!.role) && !esPropia
+        && ['desembolsado', 'pendiente_devolucion'].includes(solicitud.estado) && (
+        <div className="cc-card">
+          <h2>Plazo de rendición</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Vence el {fechaHora(solicitud.limite_tiempo_devolucion)}. Puedes recordárselo a{' '}
+            {solicitud.solicitante?.full_name ?? 'la persona'} por WhatsApp.
+          </p>
+          <button className="cc-btn" onClick={() => ofrecerLuego(() => avisos.recordarPlazo(solicitud))}>
+            Recordar el plazo por WhatsApp
+          </button>
+        </div>
       )}
 
       {puedeRendir && (() => {
@@ -438,14 +453,14 @@ export function SolicitudDetailPage() {
           <div className="cc-acc">
             <button className="cc-btn cc-btn-ok" disabled={trabajando || !recibiOriginales || !firmaVerificada}
               onClick={() => accion(
-                () => verificarFisica(solicitud.id, true, obsFisica, perfil!.id, firmaVerificada),
+                async () => { await verificarFisica(solicitud.id, true, obsFisica, perfil!.id, firmaVerificada); ofrecerLuego(() => avisos.cotejo(solicitud, true, obsFisica)) },
                 'Documentación conforme. La solicitud queda cerrada.'
               )}>
               Recibí y coincide
             </button>
             <button className="cc-btn cc-btn-r" disabled={trabajando || !obsFisica.trim()}
               onClick={() => accion(
-                () => verificarFisica(solicitud.id, false, obsFisica, perfil!.id),
+                async () => { await verificarFisica(solicitud.id, false, obsFisica, perfil!.id); ofrecerLuego(() => avisos.cotejo(solicitud, false, obsFisica)) },
                 'Observación registrada. El solicitante ya fue notificado.'
               )}>
               Observar

@@ -7,6 +7,7 @@ import { useAuth } from '../hooks/useAuth'
 import { EstadoRed } from './EstadoRed'
 import { ETIQUETA_ROL, type Rol } from '../types/database'
 import { iniciales } from '../lib/formato'
+import { PanelWhatsApp } from './PanelWhatsApp'
 
 const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] }[] = [
   { a: '/dashboard', texto: 'Panel', Icono: LayoutDashboard, roles: ['super_admin', 'solicitante', 'daf', 'admin_caja', 'contabilidad'] },
@@ -79,6 +80,7 @@ export function Layout() {
       <main className="cc-centro">
         <EstadoRed />
         <Outlet />
+        <PanelWhatsApp />
       </main>
     </div>
   )
