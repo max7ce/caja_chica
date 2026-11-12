@@ -7,6 +7,7 @@ import { bs, fecha } from '../lib/formato'
 import { ValeQR } from '../components/ValeQR'
 import { Cabecera, Cargando, Dato, Error as AvisoError, Exito, Persona, Vacio } from '../components/Ui'
 import type { InformeRendicion, Profile } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 /** Días transcurridos desde que el DAF aprobó: mide la demora de contabilidad. */
 function diasEsperando(iso: string | null): number {
@@ -44,6 +45,7 @@ export function ReposicionesPage() {
     setTrabajando(true); setError(null); setExito(null)
     try {
       await registrarReposicion(i, perfil!.id)
+      ofrecerLuego(() => avisos.reposicionHecha(i))
       setExito(`Reposición de ${bs(i.monto_reposicion)} registrada. El saldo de caja ya subió.`)
       setAbierto(null)
       await cargar()

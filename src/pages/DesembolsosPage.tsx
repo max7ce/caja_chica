@@ -6,6 +6,7 @@ import { bs, fecha } from '../lib/formato'
 import { ValeQR } from '../components/ValeQR'
 import { Alerta, Cabecera, Cargando, Error as AvisoError, Persona, Vacio } from '../components/Ui'
 import type { Solicitud } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 export function DesembolsosPage() {
   const { perfil, parametros, periodo } = useAuth()
@@ -26,7 +27,11 @@ export function DesembolsosPage() {
 
   async function confirmar(s: Solicitud) {
     setTrabajando(true); setError(null)
-    try { await desembolsar(s, perfil!.id, periodo?.id ?? null); setAbierta(null); await cargar() }
+    try {
+      await desembolsar(s, perfil!.id, periodo?.id ?? null)
+      ofrecerLuego(() => avisos.desembolsado(s))
+      setAbierta(null); await cargar()
+    }
     catch (e: any) { setError(e.message) } finally { setTrabajando(false) }
   }
 

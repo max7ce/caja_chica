@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { pedirReposicion } from '../lib/api'
 import { bs, fecha } from '../lib/formato'
 import type { InformeRendicion } from '../types/database'
+import { avisos, ofrecerLuego } from '../lib/whatsapp'
 
 /**
  * Pedido de reposición en dos pasos: el botón muestra el resumen del
@@ -58,7 +59,11 @@ export function PedirReposicion({ informe, cantidadVales, onListo, verInforme = 
         <button className="cc-btn cc-btn-p" disabled={enviando}
           onClick={async () => {
             setEnviando(true); setError(null)
-            try { await pedirReposicion(informe); setHecho(true); onListo?.() }
+            try {
+              await pedirReposicion(informe)
+              ofrecerLuego(() => avisos.reposicionPedida(informe))
+              setHecho(true); onListo?.()
+            }
             catch (e: any) { setError(e.message ?? 'No se pudo enviar el pedido.') }
             finally { setEnviando(false) }
           }}>
