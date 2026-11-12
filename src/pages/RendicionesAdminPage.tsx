@@ -36,15 +36,15 @@ export function RendicionesAdminPage() {
   return (
     <>
       <Cabecera
-        titulo="Rendiciones por administrador"
-        bajada="Cómo rindió cada responsable de caja durante su período. Sirve para comparar gestiones y ver dónde se demora el circuito."
+        titulo="Comparativo por administrador"
+        bajada="Resumen de cada responsable de caja durante su período, para comparar gestiones y ver dónde se demora el circuito. Los informes uno por uno están en Rendición de cuentas."
       />
       <AvisoError mensaje={error} />
 
       {!filas.length ? <Vacio texto="Todavía no hay gestiones registradas." /> : (
         <>
           <div className="cc-grid cc-g3">
-            <Dato valor={bs(totalRendido)} rotulo="Total rendido histórico" />
+            <Dato valor={bs(totalRendido)} rotulo="Gasto neto rendido (histórico)" />
             <Dato valor={totalInformes} rotulo="Informes presentados" />
             <Dato valor={`${promedio} días`} rotulo="Promedio de aprobación" />
           </div>
@@ -56,7 +56,7 @@ export function RendicionesAdminPage() {
                 <thead>
                   <tr>
                     <th>Administrador</th><th>Período</th><th className="num">Informes</th>
-                    <th className="num">Monto rendido</th><th className="num">Días de aprobación</th>
+                    <th className="num">Gasto neto rendido</th><th className="num">Días de aprobación</th>
                     <th>Rendido dentro del plazo</th><th>Estado</th>
                   </tr>
                 </thead>

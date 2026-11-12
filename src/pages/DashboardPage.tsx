@@ -4,8 +4,9 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { listarSolicitudes, obtenerSaldo } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, horasRestantes } from '../lib/formato'
-import { Alerta, Cabecera, Cargando, Dato, Error as AvisoError } from '../components/Ui'
+import { Cabecera, Cargando, Dato, Error as AvisoError } from '../components/Ui'
 import { TablaSolicitudes } from './TablaSolicitudes'
+import { TareaDelCiclo } from '../components/TareaDelCiclo'
 import type { SaldoCaja, Solicitud } from '../types/database'
 
 export function DashboardPage() {
@@ -69,9 +70,7 @@ export function DashboardPage() {
             : `${vencidas.length} rendición(es) pasaron el plazo sin completarse.`}
         </div>
       )}
-      {bajo && !esSolicitante && (
-        <Alerta mensaje={`El saldo bajó de ${bs(umbral)}. Es momento de armar el informe del ciclo para pedir la reposición.`} />
-      )}
+      {!esSolicitante && perfil && <TareaDelCiclo rol={perfil.role} saldo={valor} umbral={Number(umbral)} />}
 
       <div className="cc-grid cc-g3">
         {saldo && (
