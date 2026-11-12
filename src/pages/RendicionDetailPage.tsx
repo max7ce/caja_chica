@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   enviarInformeAlDaf, facturasDeInforme, listarComprobantes, obtenerInforme,
-  pedirReposicion, registrarReposicion, resolverInforme, subirReporteContable
+  registrarReposicion, resolverInforme, subirReporteContable
 } from '../lib/api'
 import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
 import { ValeQR } from '../components/ValeQR'
+import { PedirReposicion } from '../components/PedirReposicion'
 import { useAuth } from '../hooks/useAuth'
 import { bs, etiquetaComprobante, fecha } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
@@ -263,13 +264,8 @@ export function RendicionDetailPage() {
             El DAF aprobó el informe{informe.fecha_aprobacion_daf && ` el ${fecha(informe.fecha_aprobacion_daf)}`}.
             Para cerrar el ciclo tienes que pedir la reposición: contabilidad recién transfiere con este pedido.
           </p>
-          <button className="cc-btn cc-btn-p" disabled={trabajando}
-            onClick={() => accion(
-              () => pedirReposicion(informe),
-              'Reposición pedida. Contabilidad ya fue avisada.'
-            )}>
-            Pedir reposición de {bs(informe.monto_reposicion)}
-          </button>
+          <PedirReposicion informe={informe} cantidadVales={solicitudes.length} verInforme={false}
+            onListo={() => { void cargar() }} />
         </div>
       )}
 

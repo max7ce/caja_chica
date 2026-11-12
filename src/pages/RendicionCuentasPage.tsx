@@ -4,6 +4,7 @@ import {
   crearInforme, gastoNeto, INFORME_EN_CURSO, listarInformes, listarPerfiles, obtenerSaldo, solicitudesSinRendir
 } from '../lib/api'
 import { exportarInformes } from '../lib/exportar'
+import { PedirReposicion } from '../components/PedirReposicion'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fecha } from '../lib/formato'
 import { Alerta, Cabecera, Cargando, Error as AvisoError, EstadoInformeChip, Vacio } from '../components/Ui'
@@ -53,7 +54,14 @@ export function RendicionCuentasPage() {
         <div className="cc-card">
           <h2>Informe del ciclo</h2>
 
-          {enCurso ? (
+          {enCurso?.estado === 'aprobado_daf' ? (
+            <>
+              <div className="cc-aviso cc-av-ok">
+                El DAF aprobó el informe del ciclo. Pide la reposición para que contabilidad transfiera.
+              </div>
+              <PedirReposicion informe={enCurso} onListo={() => { void cargar() }} />
+            </>
+          ) : enCurso ? (
             <div className="cc-aviso cc-av-oro">
               Hay un informe en curso (<EstadoInformeChip estado={enCurso.estado} />). Hasta que
               contabilidad confirme su reposición no se puede armar otro.{' '}

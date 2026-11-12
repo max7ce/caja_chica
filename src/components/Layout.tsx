@@ -17,7 +17,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
   { a: '/caja/validar-devoluciones', texto: 'Validar rendiciones', Icono: RefreshCcw, roles: ['super_admin', 'admin_caja'] },
   { a: '/rendicion-cuentas', texto: 'Rendición', Icono: FileText, roles: ['super_admin', 'admin_caja', 'daf', 'contabilidad'] },
   { a: '/reposiciones', texto: 'Reposiciones', Icono: Banknote, roles: ['contabilidad', 'super_admin'] },
-  { a: '/rendiciones-admin', texto: 'Rendiciones por admin', Icono: Building2, roles: ['super_admin', 'daf', 'contabilidad'] },
+  { a: '/rendiciones-admin', texto: 'Comparativo por admin', Icono: Building2, roles: ['super_admin', 'daf', 'contabilidad'] },
   { a: '/reportes', texto: 'Reportes', Icono: BarChart3, roles: ['super_admin', 'daf', 'admin_caja', 'contabilidad'] },
   { a: '/avisos', texto: 'Avisos', Icono: Bell, roles: ['super_admin', 'daf', 'admin_caja'] },
   { a: '/periodos', texto: 'Gestiones de caja', Icono: CalendarRange, roles: ['super_admin'] },
