@@ -82,6 +82,7 @@ function solicitante(s: Solicitud): Contacto {
 const app = () => (typeof window !== 'undefined' ? window.location.origin : '')
 const pie = '\n\n— Caja chica UCB Tarija'
 const nro = (id: string) => id.slice(0, 8)
+const nroInf = (i: InformeRendicion) => (i.numero ? `N.º ${i.numero}/${i.gestion}` : '')
 const primer = (n: string) => n.split(' ')[0]
 const titulo = (s: Solicitud) => `«${s.descripcion}» (vale ${nro(s.id)})`
 
@@ -147,25 +148,32 @@ export const avisos = {
   /** Administrador envía el informe → DAF */
   async informeEnviado(i: InformeRendicion): Promise<AvisoWa[]> {
     return (await contactosPorRol('daf')).map((daf) => ({
-      para: daf, motivo: 'Para que apruebe el informe',
-      texto: `Hola ${primer(daf.nombre)}. Le envié el informe de rendición del ciclo de caja chica. Reposición solicitada: ${bs(i.monto_reposicion)}. Queda pendiente de su aprobación:\n${app()}/rendicion-cuentas/${i.id}${pie}`
+      para: daf, motivo: 'Para que lo reciba y lo firme',
+      texto: `Hola ${primer(daf.nombre)}. Le envié el informe de rendición de caja chica ${nroInf(i)}, con una reposición de ${bs(i.monto_reposicion)}. Le llevo el informe impreso y firmado para su firma y envío a Rectorado:\n${app()}/rendicion-cuentas/${i.id}${pie}`
     }))
   },
 
-  /** DAF resuelve el informe → administrador */
-  async informeResuelto(i: InformeRendicion, aprobado: boolean): Promise<AvisoWa[]> {
+  /** DAF firma y lo manda a Rectorado → administrador */
+  async informeEnRectorado(i: InformeRendicion): Promise<AvisoWa[]> {
+    const admin = await contactoPorId(i.admin_caja_id)
+    return [{ para: admin, motivo: 'Para que sepa dónde está el informe',
+      texto: `Hola ${primer(admin.nombre)}. Recibí y firmé el informe de rendición ${nroInf(i)}; ya lo envié a Rectorado. Cuando vuelva firmado le daré el OK para que pida la reposición de ${bs(i.monto_reposicion)}.${pie}` }]
+  },
+
+  /** DAF da el OK o rechaza → administrador */
+  async informeResuelto(i: InformeRendicion, aprobado: boolean, motivo = ''): Promise<AvisoWa[]> {
     const admin = await contactoPorId(i.admin_caja_id)
     return [{ para: admin, motivo: aprobado ? 'Para que pida la reposición' : 'Para que lo rehaga',
       texto: aprobado
-        ? `Hola ${primer(admin.nombre)}. Aprobé el informe de rendición del ciclo. Ya puede pedir la reposición de ${bs(i.monto_reposicion)}:\n${app()}/rendicion-cuentas/${i.id}${pie}`
-        : `Hola ${primer(admin.nombre)}. Rechacé el informe de rendición del ciclo. Sus solicitudes vuelven a quedar disponibles para armarlo de nuevo:\n${app()}/rendicion-cuentas/${i.id}${pie}` }]
+        ? `Hola ${primer(admin.nombre)}. El informe de rendición ${nroInf(i)} volvió firmado por Rectorado y le di el OK. Ya puede pedir la reposición de ${bs(i.monto_reposicion)} a Contabilidad:\n${app()}/rendicion-cuentas/${i.id}${pie}`
+        : `Hola ${primer(admin.nombre)}. Rechacé el informe de rendición ${nroInf(i)}.${motivo ? `\nMotivo: ${motivo}` : ''}\nSus vales vuelven a quedar disponibles para armarlo de nuevo:\n${app()}/rendicion-cuentas${pie}` }]
   },
 
   /** Administrador pide la reposición → contabilidad */
   async reposicionPedida(i: InformeRendicion): Promise<AvisoWa[]> {
     return (await contactosPorRol('contabilidad')).map((c) => ({
       para: c, motivo: 'Para que transfiera',
-      texto: `Hola ${primer(c.nombre)}. El DAF aprobó el informe de rendición de caja chica y pedí la reposición de ${bs(i.monto_reposicion)}. Por favor transfiérela a mi QR de cobro:\n${app()}/reposiciones${pie}`
+      texto: `Hola ${primer(c.nombre)}. El informe de rendición de caja chica ${nroInf(i)} ya tiene las firmas del DAF y de Rectorado, y pedí la reposición de ${bs(i.monto_reposicion)}. Por favor transfiérela a mi QR de cobro:\n${app()}/reposiciones${pie}`
     }))
   },
 

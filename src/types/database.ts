@@ -158,6 +158,19 @@ export interface InformeRendicion {
   fecha_aprobacion_daf: string | null
   fecha_pedido_reposicion: string | null
   pedido_reposicion_por_id: string | null
+  /** Correlativo por gestión: N.º numero/gestion */
+  gestion: number | null
+  numero: number | null
+  /** El DAF recibió el informe impreso con la firma del administrador de caja */
+  firma_admin_fisica: boolean | null
+  fecha_recepcion_daf: string | null
+  /** El DAF lo firmó y lo envió a Rectorado */
+  fecha_firma_daf: string | null
+  /** Volvió de Rectorado firmado */
+  fecha_firma_rectorado: string | null
+  /** Escaneo del informe con las tres firmas (bucket comprobantes) */
+  informe_firmado_url: string | null
+  motivo_rechazo: string | null
 }
 
 export interface SaldoCaja {
