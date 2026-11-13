@@ -63,7 +63,7 @@ export function RendicionCuentasPage() {
             </>
           ) : enCurso ? (
             <div className="cc-aviso cc-av-oro">
-              Hay un informe en curso (<EstadoInformeChip estado={enCurso.estado} />). Hasta que
+              Hay un informe en curso (<EstadoInformeChip estado={enCurso.estado} enRectorado={!!enCurso.fecha_firma_daf} />). Hasta que
               contabilidad confirme su reposición no se puede armar otro.{' '}
               <Link to={`/rendicion-cuentas/${enCurso.id}`}>Ver el informe</Link>
             </div>
@@ -157,18 +157,19 @@ export function RendicionCuentasPage() {
           <div className="cc-scroll">
             <table className="cc-tabla">
               <thead>
-                <tr><th>Creado</th><th>Período</th><th className="num">Desembolsado</th>
+                <tr><th>N.º</th><th>Creado</th><th>Período</th><th className="num">Desembolsado</th>
                   <th className="num">Devuelto</th><th className="num">Reposición</th><th>Estado</th><th /></tr>
               </thead>
               <tbody>
                 {informes.map((i) => (
                   <tr key={i.id}>
+                    <td className="cc-mono">{i.numero ? `${i.numero}/${i.gestion}` : '—'}</td>
                     <td className="cc-mono">{fecha(i.fecha_creacion)}</td>
                     <td className="cc-tenue">{fecha(i.fecha_inicio_periodo)} — {fecha(i.fecha_fin_periodo)}</td>
                     <td className="num">{bs(i.total_desembolsado)}</td>
                     <td className="num">{bs(i.total_devuelto)}</td>
                     <td className="num">{bs(i.monto_reposicion)}</td>
-                    <td><EstadoInformeChip estado={i.estado} /></td>
+                    <td><EstadoInformeChip estado={i.estado} enRectorado={!!i.fecha_firma_daf} /></td>
                     <td><Link className="cc-btn cc-btn-x" to={`/rendicion-cuentas/${i.id}`}>Ver</Link></td>
                   </tr>
                 ))}

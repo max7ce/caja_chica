@@ -33,3 +33,41 @@ export function etiquetaComprobante(c: { tipo: string; descripcion: string | nul
   if (c.descripcion === 'Adjunto tras observación') return 'Comprobante adicional'
   return 'Comprobante de compra'
 }
+
+/* ------------------------------------------------ monto literal (Bs) */
+
+const UNIDADES = ['', 'uno', 'dos', 'tres', 'cuatro', 'cinco', 'seis', 'siete', 'ocho', 'nueve',
+  'diez', 'once', 'doce', 'trece', 'catorce', 'quince', 'dieciséis', 'diecisiete', 'dieciocho', 'diecinueve',
+  'veinte', 'veintiuno', 'veintidós', 'veintitrés', 'veinticuatro', 'veinticinco', 'veintiséis',
+  'veintisiete', 'veintiocho', 'veintinueve']
+const DECENAS = ['', '', '', 'treinta', 'cuarenta', 'cincuenta', 'sesenta', 'setenta', 'ochenta', 'noventa']
+const CENTENAS = ['', 'ciento', 'doscientos', 'trescientos', 'cuatrocientos', 'quinientos', 'seiscientos',
+  'setecientos', 'ochocientos', 'novecientos']
+
+function hasta999(n: number): string {
+  if (n === 0) return ''
+  if (n === 100) return 'cien'
+  const c = Math.floor(n / 100), r = n % 100
+  let t = ''
+  if (r < 30) t = UNIDADES[r]
+  else t = DECENAS[Math.floor(r / 10)] + (r % 10 ? ` y ${UNIDADES[r % 10]}` : '')
+  return [CENTENAS[c], t].filter(Boolean).join(' ')
+}
+
+function entero(n: number): string {
+  if (n === 0) return 'cero'
+  const millones = Math.floor(n / 1_000_000), miles = Math.floor((n % 1_000_000) / 1000), resto = n % 1000
+  const partes: string[] = []
+  if (millones) partes.push(millones === 1 ? 'un millón' : `${entero(millones).replace(/uno$/, 'un')} millones`)
+  if (miles) partes.push(miles === 1 ? 'mil' : `${hasta999(miles).replace(/veintiuno$/, 'veintiún').replace(/uno$/, 'un')} mil`)
+  if (resto) partes.push(hasta999(resto))
+  return partes.join(' ')
+}
+
+/** "Son: seis mil cuatrocientos setenta y cinco 00/100 Bolivianos" */
+export function montoLiteral(n: number | null | undefined): string {
+  const v = Math.round(Number(n ?? 0) * 100)
+  const e = Math.floor(v / 100), c = v % 100
+  const txt = entero(e)
+  return `${txt.charAt(0).toUpperCase()}${txt.slice(1)} ${String(c).padStart(2, '0')}/100 Bolivianos`
+}

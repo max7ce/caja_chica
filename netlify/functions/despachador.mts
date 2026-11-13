@@ -138,17 +138,22 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
     cuerpo: `Se validó su devolución de ${bs(v.monto)}. Para cerrar la rendición falta entregar al administrador de caja el vale y las facturas originales, firmados por su superior.`
   }),
   informe_enviado: (v) => ({
-    asunto: 'Informe de rendición pendiente de aprobación',
-    cuerpo: `Hay un informe de rendición esperando su aprobación por ${bs(v.monto)}.\nRevíselo en ${URL_PUBLICA}/rendicion-cuentas`
+    asunto: `Informe de rendición ${nroInforme(v)} por recibir`,
+    cuerpo: `El administrador de caja envió el informe de rendición ${nroInforme(v)} (reposición de ${bs(v.monto)}). Le entregará el informe impreso y firmado; revíselo, fírmelo y envíelo a Rectorado.\n${URL_PUBLICA}/rendicion-cuentas/${v.informe}`
+  }),
+  informe_en_rectorado: (v) => ({
+    asunto: `Informe ${nroInforme(v)} enviado a Rectorado`,
+    cuerpo: `El DAF firmó el informe de rendición ${nroInforme(v)} y lo envió a Rectorado. Cuando vuelva firmado, el DAF dará el OK para que pidas la reposición de ${bs(v.monto)}.\n${URL_PUBLICA}/rendicion-cuentas/${v.informe}`
   }),
   informe_aprobado: (v) => ({
-    asunto: `Informe de rendición ${v.estado}`,
+    asunto: `Informe de rendición ${nroInforme(v)} ${v.estado}`,
     cuerpo: v.estado === 'aprobado'
-      ? `El informe de rendición fue aprobado por la Dirección Administrativa Financiera. Entra al informe y haz el pedido de reposición: ${URL_PUBLICA}/rendicion-cuentas`
-      : `El informe de rendición fue rechazado por la Dirección Administrativa Financiera. Sus solicitudes vuelven a quedar disponibles para el próximo informe.`
+      ? `El informe de rendición ${nroInforme(v)} ya tiene las firmas del DAF y de Rectorado, y el DAF dio el OK. Entra al informe y haz el pedido de reposición de ${bs(v.monto)}: ${URL_PUBLICA}/rendicion-cuentas/${v.informe}`
+      : `El DAF rechazó el informe de rendición ${nroInforme(v)}.${v.motivo ? `\nMotivo: ${v.motivo}` : ''}\nSus solicitudes vuelven a quedar disponibles para armarlo de nuevo.`
   })
 }
 
+const nroInforme = (v: any) => (v.numero ? `N.º ${v.numero}/${v.gestion}` : '').trim()
 const bs = (n: any) => Number(n ?? 0).toLocaleString('es-BO', { minimumFractionDigits: 2 }) + ' Bs'
 const fecha = (d: any) => d
   ? new Date(d).toLocaleString('es-BO', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'America/La_Paz' })

@@ -13,6 +13,7 @@ import { DesembolsosPage } from '../pages/DesembolsosPage'
 import { ValidarDevolucionesPage } from '../pages/ValidarDevolucionesPage'
 import { RendicionCuentasPage } from '../pages/RendicionCuentasPage'
 import { RendicionDetailPage } from '../pages/RendicionDetailPage'
+import { InformeImprimirPage } from '../pages/InformeImprimirPage'
 import { RendicionesAdminPage } from '../pages/RendicionesAdminPage'
 import { ReposicionesPage } from '../pages/ReposicionesPage'
 import { ReportesPage } from '../pages/ReportesPage'
@@ -30,6 +31,9 @@ export function AppRouter() {
     <BrowserRouter>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        {/* Hoja para imprimir: sin menú ni barra lateral */}
+        <Route path="/rendicion-cuentas/:id/imprimir" element={
+          <RutaProtegida roles={['admin_caja', 'daf', 'super_admin', 'contabilidad']}><InformeImprimirPage /></RutaProtegida>} />
         <Route element={<RutaProtegida><Layout /></RutaProtegida>}>
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="/dashboard" element={<DashboardPage />} />

@@ -18,15 +18,15 @@ export function Estado({ estado }: { estado: EstadoSolicitud }) {
 
 const INFORME: Record<EstadoInforme, [string, string]> = {
   borrador: ['cc-ok', 'Borrador'],
-  pendiente_daf: ['cc-espera', 'Esperando al DAF'],
-  aprobado_daf: ['cc-espera', 'Aprobado, falta pedir reposición'],
+  pendiente_daf: ['cc-espera', 'En revisión del DAF'],
+  aprobado_daf: ['cc-espera', 'Firmado: falta pedir reposición'],
   reposicion_solicitada: ['cc-curso', 'Reposición pedida, en contabilidad'],
   completado: ['cc-ok', 'Repuesto'],
   rechazado: ['cc-mal', 'Rechazado']
 }
 
-export function EstadoInformeChip({ estado }: { estado: EstadoInforme }) {
-  const [clase, texto] = INFORME[estado]
+export function EstadoInformeChip({ estado, enRectorado = false }: { estado: EstadoInforme; enRectorado?: boolean }) {
+  const [clase, texto] = estado === 'pendiente_daf' && enRectorado ? ['cc-curso', 'En Rectorado'] : INFORME[estado]
   return <span className={`cc-chip ${clase}`}>{texto}</span>
 }
 

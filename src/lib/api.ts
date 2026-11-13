@@ -408,15 +408,54 @@ export async function obtenerInforme(id: string) {
   }
 }
 
-export async function resolverInforme(informe: InformeRendicion, aprobado: boolean, dafId: string) {
-  const { error } = await supabase.from('informe_rendicion_cuentas').update({
-    estado: aprobado ? 'aprobado_daf' : 'rechazado',
-    fecha_aprobacion_daf: new Date().toISOString(),
-    aprobado_por_id: dafId
-  }).eq('id', informe.id)
+/** N.º 3/2026 */
+export function numeroInforme(i: Pick<InformeRendicion, 'numero' | 'gestion'>) {
+  return i.numero ? `N.º ${i.numero}/${i.gestion}` : 's/n'
+}
+
+/**
+ * Paso 1 del DAF: recibió el informe impreso con la firma del administrador
+ * de caja, lo revisó, lo firmó y lo envía a Rectorado.
+ */
+export async function firmarYEnviarARectorado(informe: InformeRendicion) {
+  const { data, error } = await supabase.from('informe_rendicion_cuentas').update({
+    firma_admin_fisica: true,
+    fecha_recepcion_daf: new Date().toISOString(),
+    fecha_firma_daf: new Date().toISOString()
+  }).eq('id', informe.id).eq('estado', 'pendiente_daf').select('id')
   if (error) throw error
-  // El aviso al administrador lo genera la base. Si se aprobó, le toca a él
-  // pedir la reposición; contabilidad recién actúa con ese pedido.
+  if (!data?.length) throw new Error('El informe ya no está en revisión del DAF. Recarga la página.')
+  // El aviso al administrador ("en Rectorado") lo genera la base.
+}
+
+/**
+ * Paso 2 del DAF: el informe volvió firmado por Rectorado. Sube el escaneo
+ * con las tres firmas y da el OK para que el administrador pida la
+ * reposición. La base exige las firmas y el escaneo.
+ */
+export async function darOkInforme(informe: InformeRendicion, escaneo: File) {
+  validarArchivo('comprobantes', escaneo)
+  const ext = escaneo.name.split('.').pop()?.toLowerCase() ?? 'pdf'
+  const ruta = `informe-${informe.id}/firmado-${Date.now()}.${ext}`
+  const { error: e1 } = await supabase.storage.from('comprobantes').upload(ruta, escaneo)
+  if (e1) throw e1
+
+  const { data, error } = await supabase.from('informe_rendicion_cuentas').update({
+    fecha_firma_rectorado: new Date().toISOString(),
+    informe_firmado_url: ruta,
+    estado: 'aprobado_daf'
+  }).eq('id', informe.id).eq('estado', 'pendiente_daf').select('id')
+  if (error) throw error
+  if (!data?.length) throw new Error('El informe ya no está en revisión del DAF. Recarga la página.')
+  // El aviso al administrador lo genera la base; le toca pedir la reposición.
+}
+
+export async function rechazarInforme(informe: InformeRendicion, motivo: string) {
+  const { data, error } = await supabase.from('informe_rendicion_cuentas').update({
+    estado: 'rechazado', motivo_rechazo: motivo.trim()
+  }).eq('id', informe.id).eq('estado', 'pendiente_daf').select('id')
+  if (error) throw error
+  if (!data?.length) throw new Error('El informe ya no está en revisión del DAF. Recarga la página.')
 }
 
 /**

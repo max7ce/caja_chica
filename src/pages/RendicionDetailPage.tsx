@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
-  enviarInformeAlDaf, facturasDeInforme, listarComprobantes, obtenerInforme,
-  registrarReposicion, resolverInforme, subirReporteContable
+  darOkInforme, enviarInformeAlDaf, facturasDeInforme, firmarYEnviarARectorado, listarComprobantes,
+  numeroInforme, obtenerInforme, rechazarInforme, registrarReposicion, subirReporteContable
 } from '../lib/api'
 import { EnlaceArchivo } from '../components/ArchivoFirmado'
 import { exportarDatosFiscales, exportarInforme } from '../lib/exportar'
 import { ValeQR } from '../components/ValeQR'
 import { PedirReposicion } from '../components/PedirReposicion'
 import { useAuth } from '../hooks/useAuth'
-import { bs, etiquetaComprobante, fecha } from '../lib/formato'
+import { bs, etiquetaComprobante, fecha, fechaHora } from '../lib/formato'
 import { Cabecera, Cargando, Dato, Error as AvisoError, EstadoInformeChip, Exito } from '../components/Ui'
 import type { Comprobante, Factura, InformeRendicion, Profile, Solicitud } from '../types/database'
 import { avisos, ofrecerLuego } from '../lib/whatsapp'
@@ -28,6 +28,13 @@ export function RendicionDetailPage() {
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState<string | null>(null)
   const [trabajando, setTrabajando] = useState(false)
+  // Pasos del DAF con el papel
+  const [recibido, setRecibido] = useState(false)
+  const [firmado, setFirmado] = useState(false)
+  const [rectorado, setRectorado] = useState(false)
+  const [escaneo, setEscaneo] = useState<File | null>(null)
+  const [rechazando, setRechazando] = useState(false)
+  const [motivo, setMotivo] = useState('')
 
   const cargar = useCallback(async () => {
     try {
@@ -47,6 +54,8 @@ export function RendicionDetailPage() {
   const esAdminDelInforme = ['admin_caja', 'super_admin'].includes(rol)
   const enBorrador = informe.estado === 'borrador'
   const puedeResolver = ['daf', 'super_admin'].includes(rol) && informe.estado === 'pendiente_daf'
+  const enRectorado = informe.estado === 'pendiente_daf' && !!informe.fecha_firma_daf
+  const imprimir = `/rendicion-cuentas/${informe.id}/imprimir`
   // La reposición la procesa contabilidad, no el administrador de caja:
   // quien recibe el dinero no puede ser quien declara haberlo recibido.
   const puedeReponer = ['contabilidad', 'super_admin'].includes(rol) && informe.estado === 'reposicion_solicitada'
@@ -63,6 +72,7 @@ export function RendicionDetailPage() {
     <>
       <div className="cc-acc" style={{ marginBottom: 16 }}>
         <Link className="cc-btn cc-btn-x" to="/rendicion-cuentas">Volver</Link>
+        <Link className="cc-btn" to={imprimir} target="_blank" rel="noreferrer">Imprimir informe</Link>
         <button className="cc-btn cc-btn-x"
           onClick={() => accion(
             () => exportarInforme(informe!, solicitudes, admin?.full_name ?? '—'),
@@ -78,10 +88,10 @@ export function RendicionDetailPage() {
           Datos fiscales ({facturas.length})
         </button>
       </div>
-      <Cabecera titulo={`Informe del ${fecha(informe.fecha_creacion)}`} />
+      <Cabecera titulo={`Informe ${numeroInforme(informe)}`} />
       <p style={{ marginTop: -12, marginBottom: 20 }}>
-        Período {fecha(informe.fecha_inicio_periodo)} — {fecha(informe.fecha_fin_periodo)} ·{' '}
-        <EstadoInformeChip estado={informe.estado} />
+        Creado el {fecha(informe.fecha_creacion)} · Período {fecha(informe.fecha_inicio_periodo)} — {fecha(informe.fecha_fin_periodo)} ·{' '}
+        <EstadoInformeChip estado={informe.estado} enRectorado={enRectorado} />
       </p>
 
       <AvisoError mensaje={error} />
@@ -214,11 +224,15 @@ export function RendicionDetailPage() {
             </div>
           )}
 
-          <p style={{ marginTop: 18 }}><strong>3.</strong> Envíalo al DAF para que autorice la reposición.</p>
+          <p style={{ marginTop: 18 }}><strong>3.</strong> Envíalo al DAF en el sistema. Después imprime el
+            informe (carátula, detalle de movimientos y firmas), <strong>fírmalo</strong> y entrégalo en
+            físico al DAF: él lo firma, lo envía a Rectorado y, cuando vuelva firmado, te da el OK para
+            pedir la reposición.</p>
           <button className="cc-btn cc-btn-p" disabled={trabajando || !informe.reporte_contable_url}
             onClick={() => accion(async () => { await enviarInformeAlDaf(informe!); ofrecerLuego(() => avisos.informeEnviado(informe!)) }, 'Informe enviado al DAF.')}>
             Enviar al DAF
-          </button>
+          </button>{' '}
+          <Link className="cc-btn" to={imprimir} target="_blank" rel="noreferrer">Ver la hoja para imprimir</Link>
           {!informe.reporte_contable_url && (
             <p className="cc-tenue" style={{ fontSize: 13 }}>
               Sin el reporte contable adjunto no se puede enviar.
@@ -240,20 +254,112 @@ export function RendicionDetailPage() {
         </div>
       )}
 
-      {puedeResolver && (
+      {!enBorrador && (
         <div className="cc-card">
-          <h2>Decisión del DAF</h2>
-          <p className="cc-tenue">Los informes se aprueban solo desde el sistema, nunca desde WhatsApp: el monto y la formalidad lo justifican.
-            Si se aprueba, el administrador de caja hace después el pedido de reposición por {bs(informe.monto_reposicion)}.</p>
+          <h2>Informe en papel y firmas</h2>
+          <ol style={{ margin: 0, paddingLeft: 20, display: 'grid', gap: 4 }}>
+            <li>{informe.firma_admin_fisica ? '✔' : '○'} Firmado por el administrador de caja y entregado al DAF
+              {informe.fecha_recepcion_daf && <span className="cc-tenue"> · recibido el {fechaHora(informe.fecha_recepcion_daf)}</span>}</li>
+            <li>{informe.fecha_firma_daf ? '✔' : '○'} Firmado por el DAF y enviado a Rectorado
+              {informe.fecha_firma_daf && <span className="cc-tenue"> · {fechaHora(informe.fecha_firma_daf)}</span>}</li>
+            <li>{informe.fecha_firma_rectorado ? '✔' : '○'} Firmado por Rectorado y OK del DAF
+              {informe.fecha_firma_rectorado && <span className="cc-tenue"> · {fechaHora(informe.fecha_firma_rectorado)}</span>}</li>
+          </ol>
+          {informe.informe_firmado_url && (
+            <p style={{ marginBottom: 0 }}>
+              <EnlaceArchivo ruta={informe.informe_firmado_url}>Ver el informe escaneado con las tres firmas</EnlaceArchivo>
+            </p>
+          )}
+          {informe.estado === 'pendiente_daf' && !puedeResolver && (
+            <p className="cc-tenue" style={{ marginBottom: 0 }}>
+              {enRectorado
+                ? 'El informe está en Rectorado. Cuando vuelva firmado, el DAF dará el OK para pedir la reposición.'
+                : 'Entrega el informe impreso y firmado al DAF. Él registra aquí cada firma.'}
+            </p>
+          )}
+        </div>
+      )}
+
+      {puedeResolver && !enRectorado && (
+        <div className="cc-card" style={{ borderLeft: '6px solid var(--azul-ucb)' }}>
+          <h2>Paso 1 · Recibir, firmar y enviar a Rectorado</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            El administrador de caja te entrega el informe {numeroInforme(informe)} impreso. Compáralo con
+            esta pantalla (reposición de {bs(informe.monto_reposicion)}, {solicitudes.length} vales) antes de firmar.
+          </p>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}>
+            <input type="checkbox" checked={recibido} onChange={(e) => setRecibido(e.target.checked)} />
+            <span>Recibí el informe impreso firmado por {admin?.full_name ?? 'el administrador de caja'}.</span>
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 12 }}>
+            <input type="checkbox" checked={firmado} onChange={(e) => setFirmado(e.target.checked)} />
+            <span>Lo revisé, lo firmé y lo envío a Rectorado.</span>
+          </label>
           <div className="cc-acc">
-            <button className="cc-btn cc-btn-p" disabled={trabajando}
-              onClick={() => accion(async () => { await resolverInforme(informe, true, perfil!.id); ofrecerLuego(() => avisos.informeResuelto(informe, true)) }, 'Informe aprobado.')}>
-              Aprobar informe
+            <button className="cc-btn cc-btn-p" disabled={trabajando || !recibido || !firmado}
+              onClick={() => accion(async () => {
+                await firmarYEnviarARectorado(informe)
+                ofrecerLuego(() => avisos.informeEnRectorado(informe))
+              }, 'Registrado: el informe está en Rectorado.')}>
+              Firmado, enviar a Rectorado
             </button>
-            <button className="cc-btn cc-btn-r" disabled={trabajando}
-              onClick={() => accion(async () => { await resolverInforme(informe, false, perfil!.id); ofrecerLuego(() => avisos.informeResuelto(informe, false)) }, 'Informe rechazado.')}>
-              Rechazar
+            <button className="cc-btn cc-btn-r" disabled={trabajando} onClick={() => setRechazando(true)}>Rechazar</button>
+          </div>
+        </div>
+      )}
+
+      {puedeResolver && enRectorado && (
+        <div className="cc-card" style={{ borderLeft: '6px solid var(--azul-ucb)' }}>
+          <h2>Paso 2 · Volvió de Rectorado: dar el OK</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Enviado a Rectorado el {fechaHora(informe.fecha_firma_daf)}. Con la firma de Rectorado, sube el
+            escaneo del informe con las tres firmas. Recién entonces el administrador de caja podrá pedir la
+            reposición de {bs(informe.monto_reposicion)} a Contabilidad.
+          </p>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 12 }}>
+            <input type="checkbox" checked={rectorado} onChange={(e) => setRectorado(e.target.checked)} />
+            <span>Rectorado firmó el informe.</span>
+          </label>
+          <div className="cc-campo" style={{ maxWidth: 420 }}>
+            <label>Escaneo o foto del informe con las tres firmas (PDF o imagen)</label>
+            <input type="file" accept="application/pdf,image/*" onChange={(e) => setEscaneo(e.target.files?.[0] ?? null)} />
+          </div>
+          <div className="cc-acc">
+            <button className="cc-btn cc-btn-p" disabled={trabajando || !rectorado || !escaneo}
+              onClick={() => accion(async () => {
+                await darOkInforme(informe, escaneo!)
+                ofrecerLuego(() => avisos.informeResuelto(informe, true))
+              }, 'OK registrado. El administrador de caja ya puede pedir la reposición.')}>
+              Dar OK para pedir la reposición
             </button>
+            <button className="cc-btn cc-btn-r" disabled={trabajando} onClick={() => setRechazando(true)}>Rechazar</button>
+          </div>
+          {(!rectorado || !escaneo) && (
+            <p className="cc-tenue" style={{ fontSize: 13 }}>Marca la firma de Rectorado y adjunta el escaneo para habilitar el OK.</p>
+          )}
+        </div>
+      )}
+
+      {puedeResolver && rechazando && (
+        <div className="cc-card" style={{ borderLeft: '6px solid #b02a37' }}>
+          <h2>Rechazar el informe</h2>
+          <p className="cc-tenue" style={{ marginTop: 0 }}>
+            Sus vales vuelven a quedar disponibles y el administrador de caja tiene que armar el informe de nuevo.
+          </p>
+          <div className="cc-campo">
+            <label>Motivo (lo recibe el administrador de caja)</label>
+            <textarea rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)} />
+          </div>
+          <div className="cc-acc">
+            <button className="cc-btn cc-btn-r" disabled={trabajando || !motivo.trim()}
+              onClick={() => accion(async () => {
+                await rechazarInforme(informe, motivo)
+                ofrecerLuego(() => avisos.informeResuelto(informe, false, motivo.trim()))
+                setRechazando(false)
+              }, 'Informe rechazado.')}>
+              Confirmar rechazo
+            </button>
+            <button className="cc-btn cc-btn-x" disabled={trabajando} onClick={() => setRechazando(false)}>Cancelar</button>
           </div>
         </div>
       )}
@@ -262,7 +368,7 @@ export function RendicionDetailPage() {
         <div className="cc-card">
           <h2>Pedir la reposición</h2>
           <p className="cc-tenue" style={{ marginTop: 0 }}>
-            El DAF aprobó el informe{informe.fecha_aprobacion_daf && ` el ${fecha(informe.fecha_aprobacion_daf)}`}.
+            El informe tiene las firmas del DAF y de Rectorado, y el DAF dio el OK{informe.fecha_aprobacion_daf && ` el ${fecha(informe.fecha_aprobacion_daf)}`}.
             Para cerrar el ciclo tienes que pedir la reposición: contabilidad recién transfiere con este pedido.
           </p>
           <PedirReposicion informe={informe} cantidadVales={solicitudes.length} verInforme={false}
@@ -304,7 +410,7 @@ export function RendicionDetailPage() {
 
       {informe.estado === 'aprobado_daf' && !puedePedir && (
         <div className="cc-aviso cc-av-oro">
-          Aprobado por el DAF. Falta que el administrador de caja pida la reposición de
+          Firmado por el DAF y Rectorado, con el OK del DAF. Falta que el administrador de caja pida la reposición de
           {' '}{bs(informe.monto_reposicion)}.
         </div>
       )}
@@ -318,7 +424,7 @@ export function RendicionDetailPage() {
 
       {informe.estado === 'rechazado' && (
         <div className="cc-aviso cc-av-mal">
-          Informe rechazado. Sus solicitudes vuelven a estar disponibles para el próximo informe del ciclo.
+          Informe rechazado{informe.motivo_rechazo && <>: {informe.motivo_rechazo}</>}. Sus vales vuelven a estar disponibles para armar el informe de nuevo.
         </div>
       )}
     </>

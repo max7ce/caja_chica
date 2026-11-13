@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { INFORME_EN_CURSO, gastoNeto, listarInformes, solicitudesSinRendir } from '../lib/api'
+import { INFORME_EN_CURSO, gastoNeto, listarInformes, numeroInforme, solicitudesSinRendir } from '../lib/api'
 import { bs } from '../lib/formato'
 import type { InformeRendicion, Rol } from '../types/database'
 import { PedirReposicion } from './PedirReposicion'
@@ -27,7 +27,7 @@ export function TareaDelCiclo({ rol, saldo, umbral }: { rol: Rol; saldo: number;
   useEffect(() => { cargar().catch(() => { /* la tarjeta es un atajo: si falla, el resto del Inicio sigue */ }) }, [cargar])
 
   const tarjeta = (titulo: string, cuerpo: React.ReactNode) => (
-    <div className="cc-card" style={{ borderLeft: '6px solid var(--acento)' }}>
+    <div className="cc-card" style={{ borderLeft: '6px solid var(--azul-ucb)' }}>
       <h2>{titulo}</h2>
       {cuerpo}
     </div>
@@ -53,13 +53,40 @@ export function TareaDelCiclo({ rol, saldo, umbral }: { rol: Rol; saldo: number;
         <p style={{ marginTop: 0 }}>Falta adjuntar el reporte contable y enviarlo al DAF.</p>
         {ver('Completar y enviar', enlace)}
       </>) : null
-    case 'pendiente_daf':
-      return rol === 'daf' || rol === 'super_admin' ? tarjeta('Informe del ciclo por aprobar', <>
-        <p style={{ marginTop: 0 }}>Reposición solicitada: {bs(informe.monto_reposicion)}.</p>
-        {ver('Revisar y aprobar', enlace)}
+    case 'pendiente_daf': {
+      const esDaf = rol === 'daf' || rol === 'super_admin'
+      if (informe.fecha_firma_daf) {
+        return tarjeta(`Informe ${numeroInforme(informe)} en Rectorado`, <>
+          <p style={{ marginTop: 0 }}>
+            {esDaf
+              ? 'Cuando vuelva firmado por Rectorado, sube el escaneo con las tres firmas y da el OK.'
+              : 'El DAF lo firmó y lo envió a Rectorado. Cuando vuelva firmado, el DAF te dará el OK para pedir la reposición.'}
+          </p>
+          {(esDaf || esAdmin) && ver(esDaf ? 'Dar el OK' : 'Ver el informe', enlace)}
+        </>)
+      }
+      if (esDaf) {
+        return tarjeta(`Informe ${numeroInforme(informe)} por recibir y firmar`, <>
+          <p style={{ marginTop: 0 }}>
+            Reposición de {bs(informe.monto_reposicion)}. El administrador de caja te entrega el informe impreso
+            con su firma; revísalo, fírmalo y envíalo a Rectorado.
+          </p>
+          {ver('Registrar firma', enlace)}
+        </>)
+      }
+      return esAdmin ? tarjeta(`Imprime, firma y entrega el informe ${numeroInforme(informe)} al DAF`, <>
+        <p style={{ marginTop: 0 }}>
+          El DAF necesita el informe en papel con tu firma. Él lo firma y lo envía a Rectorado; con las tres
+          firmas te da el OK para pedir la reposición.
+        </p>
+        <div className="cc-acc">
+          <Link className="cc-btn cc-btn-p" to={`${enlace}/imprimir`} target="_blank" rel="noreferrer">Imprimir el informe</Link>
+          <Link className="cc-btn cc-btn-x" to={enlace}>Ver el informe</Link>
+        </div>
       </>) : null
+    }
     case 'aprobado_daf':
-      return esAdmin ? tarjeta('El DAF aprobó el informe: pide la reposición', <>
+      return esAdmin ? tarjeta('Informe firmado por el DAF y Rectorado: pide la reposición', <>
         <p style={{ marginTop: 0 }}>Es el paso obligatorio para que contabilidad transfiera y la caja vuelva a su fondo.</p>
         <PedirReposicion informe={informe} onListo={() => { void cargar() }} />
       </>) : null
