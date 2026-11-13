@@ -21,17 +21,34 @@ const supabase = createClient(
 )
 
 const URL_PUBLICA = process.env.URL_PUBLICA ?? ''
-const HAY_PUSH = Boolean(process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY)
-const HAY_CORREO = Boolean(process.env.RESEND_API_KEY && process.env.CORREO_REMITENTE)
+const HAY_CORREO = Boolean(process.env.RESEND_API_KEY?.trim() && process.env.CORREO_REMITENTE?.trim())
 const MAX_INTENTOS = 3
 
-if (HAY_PUSH) {
-  webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT ?? `mailto:${process.env.CORREO_REMITENTE ?? 'cajachica@ucb.edu.bo'}`,
-    process.env.VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-  )
+/** Limpia lo que suele colarse al pegar en Netlify: espacios, comillas, saltos de línea. */
+const limpio = (v: string | undefined) => (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
+
+/**
+ * Configura el push sin tumbar la función: si una clave tiene un formato
+ * inválido, el push queda desactivado y el motivo se registra en cada aviso,
+ * mientras el correo sigue funcionando.
+ */
+let PUSH_LISTO = false
+let MOTIVO_SIN_PUSH = 'faltan VAPID_PUBLIC_KEY o VAPID_PRIVATE_KEY en Netlify'
+function prepararPush() {
+  const publica = limpio(process.env.VAPID_PUBLIC_KEY)
+  const privada = limpio(process.env.VAPID_PRIVATE_KEY)
+  if (!publica || !privada) return
+  let sujeto = limpio(process.env.VAPID_SUBJECT) || limpio(process.env.CORREO_REMITENTE) || 'cajachica@ucb.edu.bo'
+  if (!/^(mailto:|https?:\/\/)/i.test(sujeto)) sujeto = `mailto:${sujeto}`
+  try {
+    webpush.setVapidDetails(sujeto, publica, privada)
+    PUSH_LISTO = true
+  } catch (e: any) {
+    MOTIVO_SIN_PUSH = `claves VAPID inválidas: ${e?.message ?? e}`
+    console.error(MOTIVO_SIN_PUSH)
+  }
 }
+prepararPush()
 
 const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
   vale_aprobado: (v) => ({
@@ -139,6 +156,15 @@ const fecha = (d: any) => d
 const corto = (id: any) => String(id ?? '').slice(0, 8)
 
 export default async () => {
+  try {
+    return await despachar()
+  } catch (e: any) {
+    console.error('despachador', e)
+    return new Response(`error: ${e?.message ?? e}`, { status: 500 })
+  }
+}
+
+async function despachar() {
   const { data: pendientes, error } = await supabase
     .from('notificaciones')
     .select('*, destinatario:profiles!notificaciones_destinatario_id_fkey(id, email, full_name)')
@@ -180,7 +206,11 @@ export default async () => {
       // Ningún canal disponible: sin push instalado y sin correo configurado.
       // Se marca y no se reintenta, para no soltar avisos viejos cuando se
       // configuren los canales.
-      await marcar(aviso.id, 'fallida', 'sin canal disponible (sin push y correo no configurado)')
+      const motivos = [
+        PUSH_LISTO ? 'el destinatario no activó los avisos push' : `push: ${MOTIVO_SIN_PUSH}`,
+        HAY_CORREO ? 'sin correo del destinatario' : 'correo no configurado'
+      ]
+      await marcar(aviso.id, 'fallida', `sin canal disponible (${motivos.join('; ')})`)
     } else {
       const intentos = aviso.intentos + 1
       await supabase.from('notificaciones').update({
@@ -205,7 +235,7 @@ async function marcar(id: string, estado: string, error: string | null = null, p
  * borran para no reintentar contra un dispositivo que ya no existe.
  */
 async function enviarPush(aviso: any, destinatario: any, titulo: string, cuerpo: string): Promise<number> {
-  if (!HAY_PUSH) return 0
+  if (!PUSH_LISTO) return 0
 
   const { data: dispositivos } = await supabase
     .from('push_suscripciones')
@@ -225,6 +255,7 @@ async function enviarPush(aviso: any, destinatario: any, titulo: string, cuerpo:
   })
 
   let entregados = 0
+  const fallos: string[] = []
   for (const d of dispositivos) {
     try {
       await webpush.sendNotification({ endpoint: d.endpoint, keys: { p256dh: d.p256dh, auth: d.auth } }, carga)
@@ -234,10 +265,13 @@ async function enviarPush(aviso: any, destinatario: any, titulo: string, cuerpo:
       if (e?.statusCode === 404 || e?.statusCode === 410) {
         await supabase.from('push_suscripciones').delete().eq('id', d.id)
       } else {
-        console.error('push fallido', d.endpoint.slice(0, 40), e?.statusCode ?? e?.message)
+        fallos.push(`${e?.statusCode ?? ''} ${e?.body ?? e?.message ?? e}`.trim())
       }
     }
   }
+  // Si ningún dispositivo lo recibió por un error real (por ejemplo, la
+  // clave pública de Netlify no coincide con la de la app), se registra.
+  if (!entregados && fallos.length) throw new Error(fallos.join(' | ').slice(0, 300))
   return entregados
 }
 
