@@ -115,6 +115,10 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
     asunto: 'Reposición de caja chica por procesar',
     cuerpo: `El administrador de caja pidió la reposición de ${bs(v.monto)} sobre un informe aprobado por el DAF.\nProcésala en ${URL_PUBLICA}/reposiciones`
   }),
+  reposicion_rectorado: (v) => ({
+    asunto: `Caja chica repuesta · informe ${nroInforme(v)}`,
+    cuerpo: `Se completó la reposición del fondo de caja chica. El informe de rendición ${nroInforme(v)}, firmado por el DAF y Rectorado, fue aprobado y Contabilidad transfirió ${bs(v.monto)} al administrador de caja${v.admin ? ` (${v.admin})` : ''}.${v.fondo ? ` La caja vuelve a contar con su fondo de ${bs(v.fondo)}.` : ''}`
+  }),
   reposicion_hecha: (v) => ({
     asunto: 'Reposición acreditada',
     cuerpo: `Contabilidad transfirió la reposición de ${bs(v.monto)}. El saldo de caja ya está disponible.`

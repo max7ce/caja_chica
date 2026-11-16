@@ -11,6 +11,7 @@ export function PeriodosPage() {
   const perfilId = perfil!.id
   const [periodos, setPeriodos] = useState<Periodo[]>([])
   const [admins, setAdmins] = useState<Profile[]>([])
+  const [todos, setTodos] = useState<Profile[]>([])
   const [adminId, setAdminId] = useState('')
   const [etiqueta, setEtiqueta] = useState('')
   const [fondo, setFondo] = useState(String(parametros?.monto_reposicion ?? 7000))
@@ -24,6 +25,7 @@ export function PeriodosPage() {
     try {
       const [p, perfiles] = await Promise.all([listarPeriodos(), listarPerfiles()])
       setPeriodos(p)
+      setTodos(perfiles.filter((x) => x.activo))
       setAdmins(perfiles.filter((x) => ['admin_caja', 'super_admin'].includes(x.role) && x.activo))
     } catch (e: any) { setError(e.message) } finally { setCargando(false) }
   }, [])
@@ -167,6 +169,30 @@ export function PeriodosPage() {
           )}
         </div>
 
+        <div className="cc-campo">
+          <label>Aviso a Rectorado cuando se repone la caja</label>
+          <p className="cc-tenue" style={{ marginTop: 0, fontSize: 13 }}>
+            Cuando Contabilidad confirma la reposición, estas personas reciben el aviso (push y correo) y
+            Contabilidad puede mandarles el WhatsApp. Elige al Rector y, si corresponde, a quien atiende su teléfono.
+          </p>
+          {[0, 1].map((k) => (
+            <select key={k} style={{ marginBottom: 8 }} value={form.aviso_rectorado_ids?.[k] ?? ''}
+              onChange={(e) => {
+                const ids = [...(form.aviso_rectorado_ids ?? [])]
+                ids[k] = e.target.value
+                setForm({ ...form, aviso_rectorado_ids: ids.filter(Boolean) })
+              }}>
+              <option value="">{k === 0 ? 'Rector: elegir…' : 'Segunda persona (opcional)…'}</option>
+              {todos.map((p) => <option key={p.id} value={p.id}>
+                {p.full_name ?? p.email}{p.cargo ? ` · ${p.cargo}` : ''}{p.departamento ? ` · ${p.departamento}` : ''}{p.telefono ? '' : ' (sin celular)'}
+              </option>)}
+            </select>
+          ))}
+          <p className="cc-tenue" style={{ marginTop: 0, fontSize: 13 }}>
+            Si el Rector no figura, créalo primero en <em>Usuarios</em> con su correo y celular.
+          </p>
+        </div>
+
         <button className="cc-btn cc-btn-p" onClick={async () => {
           setError(null)
           try {
@@ -179,7 +205,8 @@ export function PeriodosPage() {
               monto_reposicion: form.monto_reposicion,
               plazo_rendicion_horas: form.plazo_rendicion_horas,
               pausar_fin_semana: form.pausar_fin_semana,
-              bloquear_si_vencida: form.bloquear_si_vencida
+              bloquear_si_vencida: form.bloquear_si_vencida,
+              aviso_rectorado_ids: [...new Set(form.aviso_rectorado_ids ?? [])]
             })
             await recargar()
             setExito('Parámetros actualizados. Aplican a los desembolsos nuevos, no a los plazos ya calculados.')

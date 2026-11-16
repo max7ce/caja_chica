@@ -54,6 +54,8 @@ export interface Parametros {
   vapid_public_key: string | null
   nit_institucion: string | null
   razon_social_institucion: string | null
+  /** Quiénes reciben, por Rectorado, el aviso de caja repuesta */
+  aviso_rectorado_ids: string[]
 }
 
 export interface Periodo {

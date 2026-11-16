@@ -177,10 +177,22 @@ export const avisos = {
     }))
   },
 
-  /** Contabilidad confirma la reposición → administrador */
+  /** Contabilidad confirma la reposición → administrador y Rectorado */
   async reposicionHecha(i: InformeRendicion): Promise<AvisoWa[]> {
     const admin = await contactoPorId(i.admin_caja_id)
-    return [{ para: admin, motivo: 'Para que confirme el saldo',
-      texto: `Hola ${primer(admin.nombre)}. Transferí la reposición de caja chica de ${bs(i.monto_reposicion)} a tu QR de cobro. El saldo ya está disponible.${pie}` }]
+    const { data: par } = await supabase.from('parametros').select('aviso_rectorado_ids').eq('id', 1).maybeSingle()
+    const ids: string[] = par?.aviso_rectorado_ids ?? []
+    const { data: rect } = ids.length
+      ? await supabase.from('profiles').select('full_name, email, telefono').in('id', ids).eq('activo', true)
+      : { data: [] as { full_name: string | null; email: string; telefono: string | null }[] }
+    return [
+      { para: admin, motivo: 'Para que confirme el saldo',
+        texto: `Hola ${primer(admin.nombre)}. Transferí la reposición de caja chica de ${bs(i.monto_reposicion)} a tu QR de cobro. El saldo ya está disponible.${pie}` },
+      ...(rect ?? []).map((r) => {
+        const para = { nombre: r.full_name ?? r.email, telefono: r.telefono }
+        return { para, motivo: 'Rectorado: caja chica repuesta',
+          texto: `Buen día. Le informo que se completó la reposición de caja chica: el informe de rendición ${nroInf(i)}, firmado por el DAF y Rectorado, fue aprobado y Contabilidad transfirió ${bs(i.monto_reposicion)} al administrador de caja, ${admin.nombre}.${pie}` }
+      })
+    ]
   }
 }
