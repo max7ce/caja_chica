@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from 'react'
 import { supabase } from './supabase'
 import { bs, fechaHora } from './formato'
-import type { InformeRendicion, Rol, Solicitud } from '../types/database'
+import type { Incumplimiento, InformeRendicion, Rol, Solicitud } from '../types/database'
 
 /**
  * WhatsApp sin integración con Meta: la app arma el mensaje y abre el
@@ -143,6 +143,16 @@ export const avisos = {
       texto: conforme
         ? `Hola ${primer(sol.nombre)}. Recibí y verifiqué los documentos físicos del vale ${titulo(s)}. Tu rendición quedó cerrada. Gracias.${pie}`
         : `Hola ${primer(sol.nombre)}. Observé la documentación física del vale ${titulo(s)}.${observacion ? `\nMotivo: ${observacion}` : ''}\nCorrígelo y vuelve a entregarla para cerrar la rendición.\n${app()}/solicitudes/${s.id}${pie}` }]
+  },
+
+  /** DAF → solicitante con la rendición fuera de plazo */
+  vencido(i: Incumplimiento): AvisoWa {
+    const nombre = i.solicitante?.full_name ?? 'el solicitante'
+    const vale = i.solicitud?.descripcion ? `«${i.solicitud.descripcion}» (vale ${nro(i.solicitud_id)})` : `vale ${nro(i.solicitud_id)}`
+    return {
+      para: { nombre, telefono: i.solicitante?.telefono ?? null }, motivo: 'Rendición fuera de plazo',
+      texto: `Hola ${primer(nombre)}. Le escribo de la Dirección Administrativa Financiera. El plazo para rendir su vale de caja chica ${vale} por ${bs(i.monto)} venció el ${fechaHora(i.fecha_limite)} y la rendición sigue pendiente.\nPor favor regularícela a la brevedad y hágame llegar la justificación del retraso. El incumplimiento queda registrado en el historial de caja chica.\n${app()}/solicitudes/${i.solicitud_id}${pie}`
+    }
   },
 
   /** Administrador envía el informe → DAF */

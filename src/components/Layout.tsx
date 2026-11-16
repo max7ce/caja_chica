@@ -1,7 +1,7 @@
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, FileText, PlusCircle, CheckCircle2, Wallet, RefreshCcw,
-  BarChart3, Building2, Bell, Users, CalendarRange, UserCog, Tags, Banknote
+  BarChart3, Building2, Bell, Users, CalendarRange, UserCog, Tags, Banknote, AlarmClock
 } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { EstadoRed } from './EstadoRed'
@@ -20,6 +20,7 @@ const ENLACES: { a: string; texto: string; Icono: typeof FileText; roles: Rol[] 
   { a: '/reposiciones', texto: 'Reposiciones', Icono: Banknote, roles: ['contabilidad', 'super_admin'] },
   { a: '/rendiciones-admin', texto: 'Comparativo por admin', Icono: Building2, roles: ['super_admin', 'daf', 'contabilidad'] },
   { a: '/reportes', texto: 'Reportes', Icono: BarChart3, roles: ['super_admin', 'daf', 'admin_caja', 'contabilidad'] },
+  { a: '/fuera-de-plazo', texto: 'Fuera de plazo', Icono: AlarmClock, roles: ['super_admin', 'daf', 'admin_caja'] },
   { a: '/avisos', texto: 'Avisos', Icono: Bell, roles: ['super_admin', 'daf', 'admin_caja'] },
   { a: '/periodos', texto: 'Gestiones de caja', Icono: CalendarRange, roles: ['super_admin'] },
   { a: '/categorias', texto: 'Categorías', Icono: Tags, roles: ['super_admin'] },
