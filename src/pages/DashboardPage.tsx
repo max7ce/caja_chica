@@ -67,7 +67,8 @@ export function DashboardPage() {
         <div className="cc-aviso cc-av-mal">
           {esSolicitante
             ? `Tienes ${vencidas.length} rendición(es) fuera de plazo. Hasta regularizarlas no puedes pedir vales nuevos.`
-            : `${vencidas.length} rendición(es) pasaron el plazo sin completarse.`}
+            : <>{vencidas.length} rendición(es) pasaron el plazo sin completarse.{' '}
+              {perfil && ['daf', 'admin_caja', 'super_admin'].includes(perfil.role) && <Link to="/fuera-de-plazo">Ver fuera de plazo</Link>}</>}
         </div>
       )}
       {!esSolicitante && perfil && <TareaDelCiclo rol={perfil.role} saldo={valor} umbral={Number(umbral)} />}

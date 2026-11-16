@@ -92,8 +92,12 @@ const TEXTOS: Record<string, (v: any) => { asunto: string; cuerpo: string }> = {
     cuerpo: `Últimas horas para rendir su vale de caja chica.\nVence el ${fecha(v.limite)}.`
   }),
   plazo_vencido: (v) => ({
-    asunto: 'Plazo de rendición vencido',
-    cuerpo: `El plazo para rendir su vale de caja chica venció el ${fecha(v.limite)}.\nHasta regularizarlo no podrá solicitar vales nuevos.`
+    asunto: 'Dirección Administrativa Financiera: rendición fuera de plazo',
+    cuerpo: `La Dirección Administrativa Financiera le recuerda que el plazo para rendir su vale de caja chica venció el ${fecha(v.limite)}.\nDebe regularizar la rendición y justificar el retraso ante la DAF. El incumplimiento queda registrado y, hasta regularizarlo, no podrá solicitar vales nuevos.\n${URL_PUBLICA}/solicitudes/${v.solicitud}`
+  }),
+  rendicion_vencida_daf: (v) => ({
+    asunto: `Rendición fuera de plazo: ${v.solicitante ?? ''}`.trim(),
+    cuerpo: `${v.solicitante ?? 'Un solicitante'} no rindió a tiempo el vale «${v.descripcion ?? corto(v.solicitud)}» por ${bs(v.monto)}; el plazo venció el ${fecha(v.limite)}. Quedó en el historial de incumplimientos. Puede recordarle por WhatsApp y registrar su justificación:\n${URL_PUBLICA}/fuera-de-plazo`
   }),
   entregar_fisico: (v) => ({
     asunto: 'Falta entregar la documentación en papel',
@@ -174,6 +178,10 @@ export default async () => {
 }
 
 async function despachar() {
+  // Rendiciones que pasaron el plazo: quedan en el historial y el DAF recibe aviso.
+  const { error: eInc } = await supabase.rpc('registrar_incumplimientos', { p_avisar: true })
+  if (eInc) console.warn('registrar_incumplimientos', eInc.message)
+
   const { data: pendientes, error } = await supabase
     .from('notificaciones')
     .select('*, destinatario:profiles!notificaciones_destinatario_id_fkey(id, email, full_name)')

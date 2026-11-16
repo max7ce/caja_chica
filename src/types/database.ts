@@ -102,6 +102,26 @@ export interface Solicitud {
   coordinador?: Pick<Profile, 'id' | 'full_name'> | null
 }
 
+export interface Incumplimiento {
+  id: string
+  solicitud_id: string
+  solicitante_id: string
+  periodo_id: string | null
+  monto: number
+  fecha_desembolso: string | null
+  fecha_limite: string
+  detectado_en: string
+  regularizado_en: string | null
+  justificacion: 'pendiente' | 'justificado' | 'no_justificado'
+  nota_justificacion: string | null
+  justificado_por_id: string | null
+  fecha_justificacion: string | null
+  recordatorios: number
+  ultimo_recordatorio: string | null
+  solicitante?: Pick<Profile, 'id' | 'full_name' | 'email' | 'departamento' | 'telefono'> | null
+  solicitud?: Pick<Solicitud, 'id' | 'descripcion' | 'estado'> | null
+}
+
 export interface Factura {
   id: string
   solicitud_id: string

@@ -1,7 +1,7 @@
 import { supabase } from './supabase'
 import { validarArchivo } from './storageUrls'
 import type {
-  Categoria, Comprobante, Factura, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
+  Categoria, Comprobante, Factura, Incumplimiento, InformeRendicion, MovimientoCaja, Notificacion, Oficina, Parametros,
   Periodo, Profile, RendicionAdmin, Rol, SaldoCaja, Solicitud, TipoComprobante
 } from '../types/database'
 
@@ -809,5 +809,28 @@ export async function responderObservacion(solicitudId: string, respuesta: strin
     fecha_respuesta_solicitante: new Date().toISOString(),
     conforme_fisica: null
   }).eq('id', solicitudId).eq('estado', 'pendiente_verificacion')
+  if (error) throw error
+}
+
+/* ------------------------------------------------ rendiciones fuera de plazo */
+
+export async function listarIncumplimientos(): Promise<Incumplimiento[]> {
+  const { data, error } = await supabase.from('incumplimientos_rendicion')
+    .select('*, solicitante:profiles!incumplimientos_rendicion_solicitante_id_fkey(id, full_name, email, departamento, telefono), solicitud:solicitudes(id, descripcion, estado)')
+    .order('fecha_limite', { ascending: false })
+  if (error) throw error
+  return (data ?? []) as Incumplimiento[]
+}
+
+export async function justificarIncumplimiento(id: string, justificacion: Incumplimiento['justificacion'], nota: string) {
+  const { error } = await supabase.from('incumplimientos_rendicion')
+    .update({ justificacion, nota_justificacion: nota.trim() || null }).eq('id', id)
+  if (error) throw error
+}
+
+/** Cuenta un recordatorio enviado por el DAF (la base anota la fecha). */
+export async function contarRecordatorio(inc: Incumplimiento) {
+  const { error } = await supabase.from('incumplimientos_rendicion')
+    .update({ recordatorios: inc.recordatorios + 1 }).eq('id', inc.id)
   if (error) throw error
 }
