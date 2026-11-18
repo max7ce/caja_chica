@@ -7,6 +7,10 @@
  *     base), que van solo por push y caen al correo si no hay push.
  * Cada canal se intenta por separado: si uno falla, el otro igual sale.
  *
+ * El correo sale de la cuenta institucional (CORREO_REMITENTE, por ejemplo
+ * cajachica@tja.ucb.edu.bo) con la API de Microsoft Graph: una aplicación
+ * registrada en Entra ID, con permiso de enviar solo desde ese buzón.
+ *
  * El WhatsApp no es automático: lo envía la persona desde la app con el
  * botón "Avisar por WhatsApp", que abre su WhatsApp con el mensaje armado.
  */
@@ -21,8 +25,19 @@ const supabase = createClient(
 )
 
 const URL_PUBLICA = process.env.URL_PUBLICA ?? ''
-const HAY_CORREO = Boolean(process.env.RESEND_API_KEY?.trim() && process.env.CORREO_REMITENTE?.trim())
 const MAX_INTENTOS = 3
+/** Avisos por pasada: cada correo tarda ~1 s y la función tiene tiempo limitado. */
+const LOTE = 20
+
+/** Limpia lo que suele colarse al pegar en Netlify: espacios, comillas, saltos de línea. */
+const limpioEnv = (k: string) => (process.env[k] ?? '').trim().replace(/^["']|["']$/g, '').trim()
+const M365 = {
+  tenant: limpioEnv('M365_TENANT_ID'),
+  cliente: limpioEnv('M365_CLIENT_ID'),
+  secreto: limpioEnv('M365_CLIENT_SECRET'),
+  remitente: limpioEnv('CORREO_REMITENTE')
+}
+const HAY_CORREO = Boolean(M365.tenant && M365.cliente && M365.secreto && M365.remitente)
 
 /** Limpia lo que suele colarse al pegar en Netlify: espacios, comillas, saltos de línea. */
 const limpio = (v: string | undefined) => (v ?? '').trim().replace(/^["']|["']$/g, '').trim()
@@ -189,7 +204,7 @@ async function despachar() {
     .lte('programada_para', new Date().toISOString())
     .lt('intentos', MAX_INTENTOS)
     .order('programada_para')
-    .limit(50)
+    .limit(LOTE)
 
   if (error) return new Response(error.message, { status: 500 })
 
@@ -292,18 +307,50 @@ async function enviarPush(aviso: any, destinatario: any, titulo: string, cuerpo:
   return entregados
 }
 
-async function enviarCorreo(para: string, asunto: string, cuerpo: string) {
-  const r = await fetch('https://api.resend.com/emails', {
+/* --------------------------------------------- correo por Microsoft Graph */
+
+let token: { valor: string; vence: number } | null = null
+
+/** Token de aplicación (client credentials); se reutiliza mientras dure la pasada. */
+async function tokenGraph(): Promise<string> {
+  if (token && token.vence > Date.now() + 60_000) return token.valor
+  const r = await fetch(`https://login.microsoftonline.com/${M365.tenant}/oauth2/v2.0/token`, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      from: `Caja chica UCB <${process.env.CORREO_REMITENTE}>`,
-      to: [para],
-      subject: asunto,
-      text: `${cuerpo}\n\n—\nDirección Administrativa Financiera\nUniversidad Católica Boliviana "San Pablo" · Sede Tarija`
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: M365.cliente,
+      client_secret: M365.secreto,
+      scope: 'https://graph.microsoft.com/.default',
+      grant_type: 'client_credentials'
     })
   })
-  if (!r.ok) throw new Error(await r.text())
+  const j: any = await r.json().catch(() => ({}))
+  if (!r.ok || !j.access_token) throw new Error(`token de Microsoft: ${j.error_description ?? j.error ?? r.status}`.slice(0, 300))
+  token = { valor: j.access_token, vence: Date.now() + (Number(j.expires_in) || 3000) * 1000 }
+  return token.valor
+}
+
+async function enviarCorreo(para: string, asunto: string, cuerpo: string) {
+  const r = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(M365.remitente)}/sendMail`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${await tokenGraph()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message: {
+        subject: `Caja chica UCB — ${asunto}`,
+        body: {
+          contentType: 'Text',
+          content: `${cuerpo}\n\n—\nCaja chica · Universidad Católica Boliviana "San Pablo" · Sede Tarija\nEste mensaje lo envía el sistema; para responder, use la aplicación o escriba al administrador de caja.`
+        },
+        toRecipients: [{ emailAddress: { address: para } }]
+      },
+      saveToSentItems: false
+    })
+  })
+  // Graph responde 202 sin cuerpo cuando acepta el envío.
+  if (r.status !== 202 && !r.ok) {
+    const j: any = await r.json().catch(() => ({}))
+    throw new Error(`Graph ${r.status}: ${j?.error?.message ?? ''}`.slice(0, 300))
+  }
 }
 
 export const config: Config = { schedule: '*/15 * * * *' }

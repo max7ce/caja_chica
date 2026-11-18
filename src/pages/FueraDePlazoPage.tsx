@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { contarRecordatorio, justificarIncumplimiento, listarIncumplimientos } from '../lib/api'
 import { useAuth } from '../hooks/useAuth'
 import { bs, fechaHora } from '../lib/formato'
-import { avisos, enlaceWhatsApp } from '../lib/whatsapp'
+import { asuntoAviso, avisos, enlaceCorreo, enlaceWhatsApp } from '../lib/whatsapp'
 import { Cabecera, Cargando, Error as AvisoError, Exito, Persona, Vacio } from '../components/Ui'
 import type { Incumplimiento } from '../types/database'
 
@@ -60,9 +60,10 @@ export function FueraDePlazoPage() {
 
   if (cargando) return <Cargando />
 
-  const recordar = async (i: Incumplimiento) => {
+  const recordar = async (i: Incumplimiento, medio: 'whatsapp' | 'correo') => {
     const a = avisos.vencido(i)
-    window.open(enlaceWhatsApp(a.para.telefono, a.texto), '_blank', 'noopener')
+    if (medio === 'whatsapp') window.open(enlaceWhatsApp(a.para.telefono, a.texto), '_blank', 'noopener')
+    else window.location.href = enlaceCorreo(a.para.email, asuntoAviso(a), a.texto)
     try { await contarRecordatorio(i); await cargar() } catch (e: any) { setError(e.message) }
   }
 
@@ -98,7 +99,7 @@ export function FueraDePlazoPage() {
   return (
     <>
       <Cabecera titulo="Fuera de plazo"
-        bajada="Rendiciones que pasaron el plazo. El aviso al solicitante sale solo, a nombre del DAF; aquí se le recuerda por WhatsApp y se registra su justificación. El historial no se borra." />
+        bajada="Rendiciones que pasaron el plazo. El aviso al solicitante sale solo, a nombre del DAF; aquí se le recuerda por WhatsApp o correo y se registra su justificación. El historial no se borra." />
       <AvisoError mensaje={error} />
       <Exito mensaje={exito} />
 
@@ -120,9 +121,12 @@ export function FueraDePlazoPage() {
               </div>
               {puedeActuar && (
                 <div className="cc-acc" style={{ alignItems: 'flex-start' }}>
-                  <button className="cc-btn cc-btn-p" style={{ background: '#1f7a4d', borderColor: '#1f7a4d' }} onClick={() => recordar(i)}>
+                  <button className="cc-btn cc-btn-p" style={{ background: '#1f7a4d', borderColor: '#1f7a4d' }} onClick={() => recordar(i, 'whatsapp')}>
                     Recordar por WhatsApp
                   </button>
+                  {i.solicitante?.email && (
+                    <button className="cc-btn cc-btn-x" onClick={() => recordar(i, 'correo')}>Recordar por correo</button>
+                  )}
                   <button className="cc-btn cc-btn-x" onClick={() => { setEditando(i.id); setEstado(i.justificacion === 'pendiente' ? 'justificado' : i.justificacion); setNota(i.nota_justificacion ?? '') }}>
                     Registrar justificación
                   </button>
