@@ -1,4 +1,4 @@
-import { cerrarWhatsApp, enlaceWhatsApp, normalizarCelular, useAvisosWhatsApp } from '../lib/whatsapp'
+import { asuntoAviso, cerrarWhatsApp, enlaceCorreo, enlaceWhatsApp, normalizarCelular, useAvisosWhatsApp } from '../lib/whatsapp'
 
 /**
  * Aparece abajo a la derecha después de una acción que alguien más tiene que
@@ -9,17 +9,17 @@ export function PanelWhatsApp() {
   if (!avisos.length) return null
 
   return (
-    <div role="dialog" aria-label="Avisar por WhatsApp" style={{
+    <div role="dialog" aria-label="Avisar por WhatsApp o correo" style={{
       position: 'fixed', right: 16, bottom: 16, zIndex: 50, width: 'min(380px, calc(100vw - 32px))',
       background: 'var(--papel, #fff)', border: '2px solid var(--tinta)', boxShadow: '0 8px 24px rgba(0,0,0,.18)',
       padding: 16
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
-        <strong>Avisa por WhatsApp</strong>
+        <strong>Avisa por WhatsApp o correo</strong>
         <button className="cc-btn cc-btn-x" onClick={cerrarWhatsApp} aria-label="Cerrar">Listo</button>
       </div>
       <p className="cc-tenue" style={{ margin: '6px 0 12px', fontSize: 13 }}>
-        Se abre tu WhatsApp con el mensaje escrito; solo pulsa Enviar.
+        Se abre tu WhatsApp o tu correo con el mensaje escrito; solo pulsa Enviar.
       </p>
       <div style={{ display: 'grid', gap: 10 }}>
         {avisos.map((a, i) => {
@@ -30,10 +30,18 @@ export function PanelWhatsApp() {
               <div className="cc-tenue" style={{ fontSize: 12, marginBottom: 6 }}>
                 {a.motivo}{!conNumero && ' · sin celular cargado: elige el contacto en WhatsApp'}
               </div>
-              <a className="cc-btn cc-btn-p" href={enlaceWhatsApp(a.para.telefono, a.texto)}
-                target="_blank" rel="noreferrer" style={{ background: '#1f7a4d', borderColor: '#1f7a4d', color: '#fff', textDecoration: 'none', display: 'inline-block' }}>
-                Abrir WhatsApp
-              </a>
+              <div className="cc-acc" style={{ margin: 0 }}>
+                <a className="cc-btn cc-btn-p" href={enlaceWhatsApp(a.para.telefono, a.texto)}
+                  target="_blank" rel="noreferrer" style={{ background: '#1f7a4d', borderColor: '#1f7a4d', color: '#fff', textDecoration: 'none', display: 'inline-block' }}>
+                  Abrir WhatsApp
+                </a>
+                {a.para.email && (
+                  <a className="cc-btn cc-btn-x" href={enlaceCorreo(a.para.email, asuntoAviso(a), a.texto)}
+                    style={{ textDecoration: 'none', display: 'inline-block' }}>
+                    Enviar por correo
+                  </a>
+                )}
+              </div>
             </div>
           )
         })}

@@ -9,7 +9,7 @@ import type { Incumplimiento, InformeRendicion, Rol, Solicitud } from '../types/
  * escrito. La persona solo pulsa Enviar.
  */
 
-export interface Contacto { nombre: string; telefono: string | null }
+export interface Contacto { nombre: string; telefono: string | null; email?: string | null }
 export interface AvisoWa { para: Contacto; texto: string; motivo: string }
 
 /** Celular boliviano a formato internacional sin "+" (591 + 8 dígitos). */
@@ -20,6 +20,17 @@ export function normalizarCelular(tel: string | null | undefined): string | null
   if (d.length >= 10 && d.length <= 15) return d   // otro país, ya con código
   return null
 }
+
+/**
+ * Enlace que abre la app de correo de quien usa el equipo (Outlook u otra)
+ * con el destinatario, el asunto y el mensaje escritos; la persona pulsa Enviar.
+ */
+export function enlaceCorreo(email: string | null | undefined, asunto: string, texto: string) {
+  return `mailto:${encodeURIComponent(email ?? '').replace(/%40/g, '@')}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(texto)}`
+}
+
+/** Asunto del correo de un aviso. */
+export const asuntoAviso = (a: AvisoWa) => `Caja chica UCB — ${a.motivo}`
 
 /** Enlace que abre WhatsApp con el mensaje. Sin número, deja elegir el contacto. */
 export function enlaceWhatsApp(tel: string | null | undefined, texto: string) {
@@ -59,13 +70,13 @@ export function ofrecerLuego(armar: () => Promise<AvisoWa[]>) {
 export async function contactosPorRol(rol: Rol): Promise<Contacto[]> {
   const { data } = await supabase.from('profiles').select('full_name, email, telefono')
     .eq('role', rol).eq('activo', true)
-  return (data ?? []).map((p) => ({ nombre: p.full_name ?? p.email, telefono: p.telefono }))
+  return (data ?? []).map((p) => ({ nombre: p.full_name ?? p.email, telefono: p.telefono, email: p.email }))
 }
 
 export async function contactoPorId(id: string | null | undefined): Promise<Contacto> {
   if (!id) return { nombre: 'el administrador de caja', telefono: null }
   const { data } = await supabase.from('profiles').select('full_name, email, telefono').eq('id', id).maybeSingle()
-  return { nombre: data?.full_name ?? data?.email ?? 'el administrador de caja', telefono: data?.telefono ?? null }
+  return { nombre: data?.full_name ?? data?.email ?? 'el administrador de caja', telefono: data?.telefono ?? null, email: data?.email ?? null }
 }
 
 async function adminDeCaja(): Promise<Contacto> {
@@ -74,7 +85,7 @@ async function adminDeCaja(): Promise<Contacto> {
 }
 
 function solicitante(s: Solicitud): Contacto {
-  return { nombre: s.solicitante?.full_name ?? 'el solicitante', telefono: s.solicitante?.telefono ?? null }
+  return { nombre: s.solicitante?.full_name ?? 'el solicitante', telefono: s.solicitante?.telefono ?? null, email: s.solicitante?.email ?? null }
 }
 
 /* ------------------------------------------------------------- mensajes */
@@ -150,7 +161,7 @@ export const avisos = {
     const nombre = i.solicitante?.full_name ?? 'el solicitante'
     const vale = i.solicitud?.descripcion ? `«${i.solicitud.descripcion}» (vale ${nro(i.solicitud_id)})` : `vale ${nro(i.solicitud_id)}`
     return {
-      para: { nombre, telefono: i.solicitante?.telefono ?? null }, motivo: 'Rendición fuera de plazo',
+      para: { nombre, telefono: i.solicitante?.telefono ?? null, email: i.solicitante?.email ?? null }, motivo: 'Rendición fuera de plazo',
       texto: `Hola ${primer(nombre)}. Le escribo de la Dirección Administrativa Financiera. El plazo para rendir su vale de caja chica ${vale} por ${bs(i.monto)} venció el ${fechaHora(i.fecha_limite)} y la rendición sigue pendiente.\nPor favor regularícela a la brevedad y hágame llegar la justificación del retraso. El incumplimiento queda registrado en el historial de caja chica.\n${app()}/solicitudes/${i.solicitud_id}${pie}`
     }
   },
@@ -199,7 +210,7 @@ export const avisos = {
       { para: admin, motivo: 'Para que confirme el saldo',
         texto: `Hola ${primer(admin.nombre)}. Transferí la reposición de caja chica de ${bs(i.monto_reposicion)} a tu QR de cobro. El saldo ya está disponible.${pie}` },
       ...(rect ?? []).map((r) => {
-        const para = { nombre: r.full_name ?? r.email, telefono: r.telefono }
+        const para = { nombre: r.full_name ?? r.email, telefono: r.telefono, email: r.email }
         return { para, motivo: 'Rectorado: caja chica repuesta',
           texto: `Buen día. Le informo que se completó la reposición de caja chica: el informe de rendición ${nroInf(i)}, firmado por el DAF y Rectorado, fue aprobado y Contabilidad transfirió ${bs(i.monto_reposicion)} al administrador de caja, ${admin.nombre}.${pie}` }
       })
